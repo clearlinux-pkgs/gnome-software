@@ -17,7 +17,9 @@ libgtk-3.so.0
 libgudev-1.0.so.0
 libjson-glib-1.0.so.0
 libm.so.6
+liboauth.so.0
 libpolkit-gobject-1.so.0
 libpthread.so.0
 libsecret-1.so.0
 libsoup-2.4.so.1
+libsqlite3.so.0
