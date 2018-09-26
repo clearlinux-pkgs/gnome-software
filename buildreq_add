@@ -4,3 +4,4 @@ docbook-xml
 libxslt-bin
 gtk-doc
 source-highlight
+valgrind-dev
