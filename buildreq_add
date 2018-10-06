@@ -5,3 +5,4 @@ libxslt-bin
 gtk-doc
 source-highlight
 valgrind-dev
+zstd-dev
