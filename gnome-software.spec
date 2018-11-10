@@ -4,7 +4,7 @@
 #
 Name     : gnome-software
 Version  : 3.30.2
-Release  : 6
+Release  : 7
 URL      : https://download.gnome.org/sources/gnome-software/3.30/gnome-software-3.30.2.tar.xz
 Source0  : https://download.gnome.org/sources/gnome-software/3.30/gnome-software-3.30.2.tar.xz
 Summary  : GNOME Software is a software center for GNOME
@@ -34,6 +34,7 @@ BuildRequires : pkgconfig(json-glib-1.0)
 BuildRequires : pkgconfig(libsecret-1)
 BuildRequires : pkgconfig(libsoup-2.4)
 BuildRequires : pkgconfig(oauth)
+BuildRequires : pkgconfig(packagekit-glib2)
 BuildRequires : pkgconfig(polkit-gobject-1)
 BuildRequires : pkgconfig(sqlite3)
 BuildRequires : pkgconfig(valgrind)
@@ -139,8 +140,8 @@ export http_proxy=http://127.0.0.1:9/
 export https_proxy=http://127.0.0.1:9/
 export no_proxy=localhost,127.0.0.1,0.0.0.0
 export LANG=C
-export SOURCE_DATE_EPOCH=1541892277
-CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" meson --prefix /usr --buildtype=plain -Denable-packagekit=false -Denable-ubuntuone=false -Denable-ubuntu-reviews=false -Denable-snap=false -Denable-gtk-doc=false  -Dpackagekit=false  builddir
+export SOURCE_DATE_EPOCH=1541892464
+CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" meson --prefix /usr --buildtype=plain -Denable-packagekit=true -Denable-ubuntuone=false -Denable-ubuntu-reviews=false -Denable-snap=false -Denable-gtk-doc=false  -Dpackagekit=true  builddir
 ninja -v -C builddir
 
 %install
@@ -163,6 +164,7 @@ DESTDIR=%{buildroot} ninja -C builddir install
 /usr/share/applications/gnome-software-local-file.desktop
 /usr/share/applications/org.gnome.Software.Editor.desktop
 /usr/share/applications/org.gnome.Software.desktop
+/usr/share/dbus-1/services/org.freedesktop.PackageKit.service
 /usr/share/dbus-1/services/org.gnome.Software.service
 /usr/share/glib-2.0/schemas/org.gnome.software.gschema.xml
 /usr/share/gnome-shell/search-providers/org.gnome.Software-search-provider.ini
@@ -264,12 +266,23 @@ DESTDIR=%{buildroot} ninja -C builddir install
 /usr/lib64/gs-plugins-12/libgs_plugin_modalias.so
 /usr/lib64/gs-plugins-12/libgs_plugin_odrs.so
 /usr/lib64/gs-plugins-12/libgs_plugin_os-release.so
+/usr/lib64/gs-plugins-12/libgs_plugin_packagekit-history.so
+/usr/lib64/gs-plugins-12/libgs_plugin_packagekit-local.so
+/usr/lib64/gs-plugins-12/libgs_plugin_packagekit-offline.so
+/usr/lib64/gs-plugins-12/libgs_plugin_packagekit-proxy.so
+/usr/lib64/gs-plugins-12/libgs_plugin_packagekit-refine-repos.so
+/usr/lib64/gs-plugins-12/libgs_plugin_packagekit-refine.so
+/usr/lib64/gs-plugins-12/libgs_plugin_packagekit-refresh.so
+/usr/lib64/gs-plugins-12/libgs_plugin_packagekit-upgrade.so
+/usr/lib64/gs-plugins-12/libgs_plugin_packagekit-url-to-app.so
+/usr/lib64/gs-plugins-12/libgs_plugin_packagekit.so
 /usr/lib64/gs-plugins-12/libgs_plugin_provenance-license.so
 /usr/lib64/gs-plugins-12/libgs_plugin_provenance.so
 /usr/lib64/gs-plugins-12/libgs_plugin_repos.so
 /usr/lib64/gs-plugins-12/libgs_plugin_rewrite-resource.so
 /usr/lib64/gs-plugins-12/libgs_plugin_shell-extensions.so
 /usr/lib64/gs-plugins-12/libgs_plugin_steam.so
+/usr/lib64/gs-plugins-12/libgs_plugin_systemd-updates.so
 /usr/lib64/gs-plugins-12/libgs_plugin_ubuntu-reviews.so
 /usr/lib64/gs-plugins-12/libgs_plugin_ubuntuone.so
 
