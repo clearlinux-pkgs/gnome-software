@@ -4,18 +4,19 @@
 #
 Name     : gnome-software
 Version  : 3.30.2
-Release  : 5
+Release  : 6
 URL      : https://download.gnome.org/sources/gnome-software/3.30/gnome-software-3.30.2.tar.xz
 Source0  : https://download.gnome.org/sources/gnome-software/3.30/gnome-software-3.30.2.tar.xz
 Summary  : GNOME Software is a software center for GNOME
 Group    : Development/Tools
 License  : GPL-2.0 GPL-2.0+
-Requires: gnome-software-bin
-Requires: gnome-software-lib
-Requires: gnome-software-data
-Requires: gnome-software-license
-Requires: gnome-software-locales
-Requires: gnome-software-man
+Requires: gnome-software-bin = %{version}-%{release}
+Requires: gnome-software-data = %{version}-%{release}
+Requires: gnome-software-lib = %{version}-%{release}
+Requires: gnome-software-libexec = %{version}-%{release}
+Requires: gnome-software-license = %{version}-%{release}
+Requires: gnome-software-locales = %{version}-%{release}
+Requires: gnome-software-man = %{version}-%{release}
 BuildRequires : buildreq-gnome
 BuildRequires : buildreq-meson
 BuildRequires : docbook-xml
@@ -32,8 +33,10 @@ BuildRequires : pkgconfig(gudev-1.0)
 BuildRequires : pkgconfig(json-glib-1.0)
 BuildRequires : pkgconfig(libsecret-1)
 BuildRequires : pkgconfig(libsoup-2.4)
+BuildRequires : pkgconfig(oauth)
 BuildRequires : pkgconfig(polkit-gobject-1)
 BuildRequires : pkgconfig(sqlite3)
+BuildRequires : pkgconfig(valgrind)
 BuildRequires : source-highlight
 BuildRequires : valgrind-dev
 BuildRequires : zstd-dev
@@ -47,6 +50,7 @@ This is the second paragraph.
 Summary: bin components for the gnome-software package.
 Group: Binaries
 Requires: gnome-software-data = %{version}-%{release}
+Requires: gnome-software-libexec = %{version}-%{release}
 Requires: gnome-software-license = %{version}-%{release}
 Requires: gnome-software-man = %{version}-%{release}
 
@@ -87,10 +91,20 @@ doc components for the gnome-software package.
 Summary: lib components for the gnome-software package.
 Group: Libraries
 Requires: gnome-software-data = %{version}-%{release}
+Requires: gnome-software-libexec = %{version}-%{release}
 Requires: gnome-software-license = %{version}-%{release}
 
 %description lib
 lib components for the gnome-software package.
+
+
+%package libexec
+Summary: libexec components for the gnome-software package.
+Group: Default
+Requires: gnome-software-license = %{version}-%{release}
+
+%description libexec
+libexec components for the gnome-software package.
 
 
 %package license
@@ -125,13 +139,13 @@ export http_proxy=http://127.0.0.1:9/
 export https_proxy=http://127.0.0.1:9/
 export no_proxy=localhost,127.0.0.1,0.0.0.0
 export LANG=C
-export SOURCE_DATE_EPOCH=1538841918
+export SOURCE_DATE_EPOCH=1541892277
 CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" meson --prefix /usr --buildtype=plain -Denable-packagekit=false -Denable-ubuntuone=false -Denable-ubuntu-reviews=false -Denable-snap=false -Denable-gtk-doc=false  -Dpackagekit=false  builddir
 ninja -v -C builddir
 
 %install
-mkdir -p %{buildroot}/usr/share/doc/gnome-software
-cp COPYING %{buildroot}/usr/share/doc/gnome-software/COPYING
+mkdir -p %{buildroot}/usr/share/package-licenses/gnome-software
+cp COPYING %{buildroot}/usr/share/package-licenses/gnome-software/COPYING
 DESTDIR=%{buildroot} ninja -C builddir install
 %find_lang gnome-software
 
@@ -142,8 +156,6 @@ DESTDIR=%{buildroot} ninja -C builddir install
 %defattr(-,root,root,-)
 /usr/bin/gnome-software
 /usr/bin/gnome-software-editor
-/usr/libexec/gnome-software-cmd
-/usr/libexec/gnome-software-restarter
 
 %files data
 %defattr(-,root,root,-)
@@ -205,7 +217,7 @@ DESTDIR=%{buildroot} ninja -C builddir install
 
 %files doc
 %defattr(0644,root,root,0755)
-/usr/share/doc/gnome-software/README.md
+%doc /usr/share/doc/gnome\-software/*
 /usr/share/gtk-doc/html/gnome-software/api.html
 /usr/share/gtk-doc/html/gnome-software/gnome-software-GsApp.html
 /usr/share/gtk-doc/html/gnome-software/gnome-software-GsAppList.html
@@ -261,9 +273,14 @@ DESTDIR=%{buildroot} ninja -C builddir install
 /usr/lib64/gs-plugins-12/libgs_plugin_ubuntu-reviews.so
 /usr/lib64/gs-plugins-12/libgs_plugin_ubuntuone.so
 
+%files libexec
+%defattr(-,root,root,-)
+/usr/libexec/gnome-software-cmd
+/usr/libexec/gnome-software-restarter
+
 %files license
 %defattr(0644,root,root,0755)
-/usr/share/doc/gnome-software/COPYING
+/usr/share/package-licenses/gnome-software/COPYING
 
 %files man
 %defattr(0644,root,root,0755)
