@@ -1,4 +1,4 @@
-3.30.2
+3.30.5
 liboauth-dev
 pkgconfig(oauth)
 pkgconfig(valgrind)
