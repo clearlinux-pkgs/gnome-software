@@ -1,0 +1,26 @@
+From bc0af917f2dd73ddf16b845c4515f0d5afa11082 Mon Sep 17 00:00:00 2001
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Date: Mon, 14 Jan 2019 15:18:43 -0800
+Subject: [PATCH 4/4] Add quirks - not reviewable, launchable, OS component.
+
+---
+ plugins/swupd/gs-plugin-swupd.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/plugins/swupd/gs-plugin-swupd.c b/plugins/swupd/gs-plugin-swupd.c
+index b8e91853..926bbfaf 100644
+--- a/plugins/swupd/gs-plugin-swupd.c
++++ b/plugins/swupd/gs-plugin-swupd.c
+@@ -98,6 +98,9 @@ gs_plugin_swupd_create_app (GsApp *app,
+     gs_app_set_name (app, GS_APP_QUALITY_NORMAL, bundle_name);
+     gs_app_set_url (app, AS_URL_KIND_HOMEPAGE, "https://clearlinux.org/documentation/clear-linux/concepts/bundles-about");
+     gs_app_set_kind (app, AS_APP_KIND_DESKTOP);
++    gs_app_add_quirk (app, AS_APP_QUIRK_NOT_LAUNCHABLE);
++    gs_app_add_quirk (app, AS_APP_QUIRK_NOT_REVIEWABLE);
++    gs_app_add_quirk (app, AS_APP_QUIRK_PROVENANCE);
+     if (gs_plugin_swupd_is_installed (bundle_name)) {
+         gs_app_set_state (app, AS_APP_STATE_INSTALLED);
+     } else {
+-- 
+2.20.0
+

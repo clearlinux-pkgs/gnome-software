@@ -1,0 +1,44 @@
+From 14387f1ee628f04be76a278a89c8877e503b3d2b Mon Sep 17 00:00:00 2001
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Date: Mon, 14 Jan 2019 14:59:56 -0800
+Subject: [PATCH 3/4] pass bundle name as identifier.
+
+We should really prefix this with e.g. org.clearlinux. though.
+---
+ plugins/swupd/gs-plugin-swupd.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/plugins/swupd/gs-plugin-swupd.c b/plugins/swupd/gs-plugin-swupd.c
+index 1a8b4205..b8e91853 100644
+--- a/plugins/swupd/gs-plugin-swupd.c
++++ b/plugins/swupd/gs-plugin-swupd.c
+@@ -126,7 +126,7 @@ gs_plugin_add_category_apps (GsPlugin *plugin,
+         if (strcmp(bname, "packages") == 0) {
+             continue;
+         }
+-        g_autoptr(GsApp) app = gs_app_new (NULL);
++        g_autoptr(GsApp) app = gs_app_new (bname);
+         gs_plugin_swupd_create_app (app, bname, category);
+         gs_app_set_management_plugin (app, gs_plugin_get_name (plugin));
+         gs_app_list_add (list, app);
+@@ -153,7 +153,7 @@ gs_plugin_add_installed (GsPlugin *plugin,
+         }
+ 
+         g_debug ("Installed bundle name %s", bname);
+-        g_autoptr(GsApp) app = gs_app_new (NULL);
++        g_autoptr(GsApp) app = gs_app_new (bname);
+         gs_plugin_swupd_create_app (app, bname, NULL);
+         gs_app_set_management_plugin (app, gs_plugin_get_name (plugin));
+         gs_app_list_add (list, app);
+@@ -245,7 +245,7 @@ gs_plugin_add_search (GsPlugin *plugin,
+             if (!g_str_has_prefix (bname, values[i]))
+                 continue;
+ 
+-            g_autoptr(GsApp) app = gs_app_new (NULL);
++            g_autoptr(GsApp) app = gs_app_new (bname);
+             gs_plugin_swupd_create_app (app, bname, NULL);
+             gs_app_set_management_plugin (app, gs_plugin_get_name (plugin));
+             gs_app_list_add (list, app);
+-- 
+2.20.0
+

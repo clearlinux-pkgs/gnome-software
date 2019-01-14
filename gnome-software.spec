@@ -4,7 +4,7 @@
 #
 Name     : gnome-software
 Version  : 3.30.6
-Release  : 10
+Release  : 11
 URL      : https://download.gnome.org/sources/gnome-software/3.30/gnome-software-3.30.6.tar.xz
 Source0  : https://download.gnome.org/sources/gnome-software/3.30/gnome-software-3.30.6.tar.xz
 Summary  : GNOME Software is a software center for GNOME
@@ -41,6 +41,10 @@ BuildRequires : pkgconfig(valgrind)
 BuildRequires : source-highlight
 BuildRequires : valgrind-dev
 BuildRequires : zstd-dev
+Patch1: 0001-WIP-Integrating-swupd-to-gnome-software.patch
+Patch2: 0002-Search-for-and-show-icons-from-usr-share-clear-bundl.patch
+Patch3: 0003-pass-bundle-name-as-identifier.patch
+Patch4: 0004-Add-quirks-not-reviewable-launchable-OS-component.patch
 
 %description
 This is the first paragraph in the example package spec file.
@@ -134,13 +138,17 @@ man components for the gnome-software package.
 
 %prep
 %setup -q -n gnome-software-3.30.6
+%patch1 -p1
+%patch2 -p1
+%patch3 -p1
+%patch4 -p1
 
 %build
 export http_proxy=http://127.0.0.1:9/
 export https_proxy=http://127.0.0.1:9/
 export no_proxy=localhost,127.0.0.1,0.0.0.0
 export LANG=C
-export SOURCE_DATE_EPOCH=1547132424
+export SOURCE_DATE_EPOCH=1547508421
 CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" meson --prefix /usr --buildtype=plain -Denable-packagekit=false -Denable-ubuntuone=false -Denable-ubuntu-reviews=false -Denable-snap=false -Denable-gtk-doc=false  -Dpackagekit=false  builddir
 ninja -v -C builddir
 
@@ -271,6 +279,7 @@ DESTDIR=%{buildroot} ninja -C builddir install
 /usr/lib64/gs-plugins-12/libgs_plugin_rewrite-resource.so
 /usr/lib64/gs-plugins-12/libgs_plugin_shell-extensions.so
 /usr/lib64/gs-plugins-12/libgs_plugin_steam.so
+/usr/lib64/gs-plugins-12/libgs_plugin_swupd.so
 /usr/lib64/gs-plugins-12/libgs_plugin_ubuntu-reviews.so
 /usr/lib64/gs-plugins-12/libgs_plugin_ubuntuone.so
 
