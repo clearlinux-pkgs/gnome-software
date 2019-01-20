@@ -4,10 +4,10 @@
 #
 Name     : gnome-software
 Version  : 3.30.6
-Release  : 12
+Release  : 13
 URL      : https://download.gnome.org/sources/gnome-software/3.30/gnome-software-3.30.6.tar.xz
 Source0  : https://download.gnome.org/sources/gnome-software/3.30/gnome-software-3.30.6.tar.xz
-Summary  : GNOME Software is a software center for GNOME
+Summary  : GNOME Software Tools
 Group    : Development/Tools
 License  : GPL-2.0 GPL-2.0+
 Requires: gnome-software-bin = %{version}-%{release}
@@ -149,8 +149,8 @@ export http_proxy=http://127.0.0.1:9/
 export https_proxy=http://127.0.0.1:9/
 export no_proxy=localhost,127.0.0.1,0.0.0.0
 export LANG=C
-export SOURCE_DATE_EPOCH=1547508892
-CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" meson --prefix /usr --buildtype=plain -Denable-packagekit=false -Denable-ubuntuone=false -Denable-ubuntu-reviews=false -Denable-snap=false -Denable-gtk-doc=false  -Dpackagekit=false  builddir
+export SOURCE_DATE_EPOCH=1547971639
+CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" meson --prefix /usr --buildtype=plain -Denable-packagekit=false -Denable-ubuntuone=false -Denable-ubuntu-reviews=false -Denable-snap=false -Denable-gtk-doc=false  -Dpackagekit=false -Dfwupd=false  builddir
 ninja -v -C builddir
 
 %install
@@ -204,7 +204,6 @@ DESTDIR=%{buildroot} ninja -C builddir install
 /usr/share/icons/hicolor/scalable/apps/software-installed-symbolic.svg
 /usr/share/metainfo/org.gnome.Software.Plugin.Epiphany.metainfo.xml
 /usr/share/metainfo/org.gnome.Software.Plugin.Flatpak.metainfo.xml
-/usr/share/metainfo/org.gnome.Software.Plugin.Fwupd.metainfo.xml
 /usr/share/metainfo/org.gnome.Software.Plugin.Odrs.metainfo.xml
 /usr/share/metainfo/org.gnome.Software.Plugin.Steam.metainfo.xml
 /usr/share/metainfo/org.gnome.Software.appdata.xml
@@ -263,7 +262,6 @@ DESTDIR=%{buildroot} ninja -C builddir install
 /usr/lib64/gs-plugins-12/libgs_plugin_epiphany.so
 /usr/lib64/gs-plugins-12/libgs_plugin_fedora-pkgdb-collections.so
 /usr/lib64/gs-plugins-12/libgs_plugin_flatpak.so
-/usr/lib64/gs-plugins-12/libgs_plugin_fwupd.so
 /usr/lib64/gs-plugins-12/libgs_plugin_generic-updates.so
 /usr/lib64/gs-plugins-12/libgs_plugin_hardcoded-blacklist.so
 /usr/lib64/gs-plugins-12/libgs_plugin_hardcoded-featured.so
