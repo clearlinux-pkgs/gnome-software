@@ -4,7 +4,7 @@
 #
 Name     : gnome-software
 Version  : 3.30.6
-Release  : 16
+Release  : 17
 URL      : https://download.gnome.org/sources/gnome-software/3.30/gnome-software-3.30.6.tar.xz
 Source0  : https://download.gnome.org/sources/gnome-software/3.30/gnome-software-3.30.6.tar.xz
 Summary  : GNOME Software is a software center for GNOME
@@ -43,6 +43,7 @@ BuildRequires : source-highlight
 BuildRequires : valgrind-dev
 BuildRequires : zstd-dev
 Patch1: 0001-WIP-Integrating-swupd-to-gnome-software.patch
+Patch2: 0001-CLR-custimizations.patch
 
 %description
 This is the first paragraph in the example package spec file.
@@ -137,13 +138,14 @@ man components for the gnome-software package.
 %prep
 %setup -q -n gnome-software-3.30.6
 %patch1 -p1
+%patch2 -p1
 
 %build
 export http_proxy=http://127.0.0.1:9/
 export https_proxy=http://127.0.0.1:9/
 export no_proxy=localhost,127.0.0.1,0.0.0.0
 export LANG=C
-export SOURCE_DATE_EPOCH=1550785976
+export SOURCE_DATE_EPOCH=1551407148
 CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" meson --prefix /usr --buildtype=plain -Denable-packagekit=false -Denable-ubuntuone=false -Denable-ubuntu-reviews=false -Denable-snap=false -Denable-gtk-doc=false  -Dpackagekit=false -Dfwupd=false  builddir
 ninja -v -C builddir
 
