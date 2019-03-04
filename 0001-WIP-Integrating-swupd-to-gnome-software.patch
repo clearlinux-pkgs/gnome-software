@@ -1,4 +1,4 @@
-From 85cfc385669e2d0c91dbf98742da176c4c6e0043 Mon Sep 17 00:00:00 2001
+From 2557618af4d49bd786b0ea89f276b09b337e50a3 Mon Sep 17 00:00:00 2001
 From: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@intel.com>
 Date: Wed, 9 Jan 2019 21:36:27 -0600
 Subject: [PATCH] [WIP] Integrating swupd to gnome-software
@@ -35,9 +35,9 @@ Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 ---
  meson_options.txt               |   1 +
  plugins/meson.build             |   3 +
- plugins/swupd/gs-plugin-swupd.c | 506 ++++++++++++++++++++++++++++++++
+ plugins/swupd/gs-plugin-swupd.c | 509 ++++++++++++++++++++++++++++++++
  plugins/swupd/meson.build       |  16 +
- 4 files changed, 526 insertions(+)
+ 4 files changed, 529 insertions(+)
  create mode 100644 plugins/swupd/gs-plugin-swupd.c
  create mode 100644 plugins/swupd/meson.build
 
@@ -69,10 +69,10 @@ index 528743d3..d6df4b8a 100644
  endif
 diff --git a/plugins/swupd/gs-plugin-swupd.c b/plugins/swupd/gs-plugin-swupd.c
 new file mode 100644
-index 00000000..418bb7a8
+index 00000000..3d921a1f
 --- /dev/null
 +++ b/plugins/swupd/gs-plugin-swupd.c
-@@ -0,0 +1,506 @@
+@@ -0,0 +1,509 @@
 +/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*-
 + *
 + * Licensed under the GNU General Public License Version 2
@@ -258,7 +258,10 @@ index 00000000..418bb7a8
 +	bundles_dir = g_dir_open (GS_PLUGIN_SWUPD_BUNDLES_PATH, 0, NULL);
 +	while ((fname = g_dir_read_name (bundles_dir)) != NULL) {
 +		GsApp *app = NULL;
-+		if (g_file_test (fname, G_FILE_TEST_IS_DIR))
++		g_autofree gchar *full_path = g_strdup_printf ("%s/%s",
++							       GS_PLUGIN_SWUPD_BUNDLES_PATH,
++							       fname);
++		if (g_file_test (full_path, G_FILE_TEST_IS_DIR))
 +			continue;
 +		if (g_strcmp0 (fname, "packages") == 0)
 +			continue;
