@@ -1,20 +1,241 @@
-From a0ab8e74ceca43dec30014d571b1da4522f20766 Mon Sep 17 00:00:00 2001
+From 45b1198464adbb8f25141d28ae6fd8bd0069b3c5 Mon Sep 17 00:00:00 2001
 From: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@intel.com>
 Date: Wed, 27 Feb 2019 16:42:33 -0600
 Subject: [PATCH] CLR custimizations
 
 hide the screenshot section if there is not screenshot available
+add the option to add the bundle content (packages and includes)
+remove details if there is not information for them
+
+TODO:
+add a better style to the labels that make a different between
+the packages and the includes
 
 Signed-off-by: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@intel.com>
 ---
- src/gs-details-page.c | 1 +
- 1 file changed, 1 insertion(+)
+ lib/gs-app.c                    | 71 +++++++++++++++++++++++++++++++++
+ lib/gs-app.h                    |  9 +++++
+ plugins/swupd/gs-plugin-swupd.c | 42 ++++++++++++++++---
+ src/gs-details-page.c           | 48 +++++++++++++++++++++-
+ src/gs-details-page.ui          | 13 ++++++
+ 5 files changed, 177 insertions(+), 6 deletions(-)
 
+diff --git a/lib/gs-app.c b/lib/gs-app.c
+index 6fbfeac4..8657c8c9 100644
+--- a/lib/gs-app.c
++++ b/lib/gs-app.c
+@@ -79,6 +79,7 @@ typedef struct
+ 	GsAppQuality		 summary_quality;
+ 	gchar			*summary_missing;
+ 	gchar			*description;
++	GPtrArray               *bundle_content; /* just for clearlinux*/
+ 	GsAppQuality		 description_quality;
+ 	GPtrArray		*screenshots;
+ 	GPtrArray		*categories;
+@@ -2155,6 +2156,75 @@ gs_app_set_description (GsApp *app, GsAppQuality quality, const gchar *descripti
+ 	_g_set_str (&priv->description, description);
+ }
+ 
++GPtrArray *
++gs_app_get_bundle_content (GsApp *app)
++{
++	GsAppPrivate *priv = gs_app_get_instance_private (app);
++	g_return_val_if_fail (GS_IS_APP (app), NULL);
++	return priv->bundle_content;
++}
++
++gboolean
++gs_app_has_bundle_content (GsApp *app, const char *package)
++{
++	GsAppPrivate *priv = gs_app_get_instance_private (app);
++	const gchar *tmp;
++	guint i;
++
++	g_return_val_if_fail (GS_IS_APP (app), FALSE);
++
++	for (i = 0; i < priv->bundle_content->len; i++) {
++		tmp = g_ptr_array_index (priv->bundle_content, i);
++		if (g_strcmp0 (tmp, package) == 0)
++			return TRUE;
++	}
++	return FALSE;
++}
++
++void
++gs_app_set_bundle_content (GsApp *app, GPtrArray *content)
++{
++	GsAppPrivate *priv = gs_app_get_instance_private (app);
++	g_autoptr (GMutexLocker) locker = NULL;
++	g_return_if_fail (GS_IS_APP (app));
++	g_return_if_fail (content != NULL);
++	locker = g_mutex_locker_new (&priv->mutex);
++	_g_set_ptr_array (&priv->bundle_content, content);
++}
++
++void
++gs_app_add_bundle_content (GsApp *app, const gchar *package)
++{
++	GsAppPrivate *priv = gs_app_get_instance_private (app);
++	g_autoptr (GMutexLocker) locker = NULL;
++	g_return_if_fail (GS_IS_APP (app));
++	g_return_if_fail (package != NULL);
++	locker = g_mutex_locker_new (&priv->mutex);
++	if (gs_app_has_bundle_content (app, package))
++		return;
++	g_ptr_array_add (priv->bundle_content, package);
++}
++
++gboolean
++gs_app_remove_bundle_content (GsApp *app, const gchar *package)
++{
++	GsAppPrivate *priv = gs_app_get_instance_private (app);
++	const gchar *tmp;
++	guint i;
++	g_autoptr(GMutexLocker) locker = NULL;
++	g_return_val_if_fail (GS_IS_APP (app), FALSE);
++	locker = g_mutex_locker_new (&priv->mutex);
++
++	for (i = 0; i < priv->bundle_content->len; i++) {
++		tmp = g_ptr_array_index (priv->bundle_content, i);
++		if (g_strcmp0 (tmp, package) != 0)
++			continue;
++		g_ptr_array_remove_index_fast (priv->bundle_content, i);
++		return TRUE;
++	}
++	return FALSE;
++}
++
+ /**
+  * gs_app_get_url:
+  * @app: a #GsApp
+@@ -4349,6 +4419,7 @@ gs_app_init (GsApp *app)
+ 	priv->sources = g_ptr_array_new_with_free_func (g_free);
+ 	priv->source_ids = g_ptr_array_new_with_free_func (g_free);
+ 	priv->categories = g_ptr_array_new_with_free_func (g_free);
++	priv->bundle_content = g_ptr_array_new_with_free_func (g_free); 
+ 	priv->key_colors = g_ptr_array_new_with_free_func ((GDestroyNotify) gdk_rgba_free);
+ 	priv->addons = gs_app_list_new ();
+ 	priv->related = gs_app_list_new ();
+diff --git a/lib/gs-app.h b/lib/gs-app.h
+index f05779a2..c798562c 100644
+--- a/lib/gs-app.h
++++ b/lib/gs-app.h
+@@ -184,6 +184,15 @@ const gchar	*gs_app_get_description		(GsApp		*app);
+ void		 gs_app_set_description		(GsApp		*app,
+ 						 GsAppQuality	 quality,
+ 						 const gchar	*description);
++GPtrArray       *gs_app_get_bundle_content      (GsApp          *app);
++gboolean         gs_app_has_bundle_content      (GsApp          *app,
++						 const char     *package);
++void             gs_app_set_bundle_content      (GsApp          *app,
++						 GPtrArray      *content);
++void             gs_app_add_bundle_content      (GsApp          *app,
++						 const gchar    *package);
++gboolean         gs_app_remove_bundle_content   (GsApp          *app,
++						 const gchar    *package);
+ const gchar	*gs_app_get_url			(GsApp		*app,
+ 						 AsUrlKind	 kind);
+ void		 gs_app_set_url			(GsApp		*app,
+diff --git a/plugins/swupd/gs-plugin-swupd.c b/plugins/swupd/gs-plugin-swupd.c
+index 3d921a1f..6e81ef18 100644
+--- a/plugins/swupd/gs-plugin-swupd.c
++++ b/plugins/swupd/gs-plugin-swupd.c
+@@ -82,6 +82,7 @@ gs_plugin_swupd_get_app (GsPlugin *plugin,
+ 			 const gchar *bundle_name,
+ 			 const gchar *desc)
+ {
++	GsPluginData *priv = gs_plugin_get_data (plugin);
+ 	gchar *icon_path = NULL;
+ 	g_autofree gchar *bundleid = NULL;
+ 	GsApp *app = NULL;
+@@ -110,6 +111,7 @@ gs_plugin_swupd_get_app (GsPlugin *plugin,
+ 		gs_app_add_quirk (app, AS_APP_QUIRK_NOT_LAUNCHABLE);
+ 		gs_app_add_quirk (app, AS_APP_QUIRK_NOT_REVIEWABLE);
+ 		gs_app_add_quirk (app, AS_APP_QUIRK_PROVENANCE);
++		gs_app_set_version (app, priv->clr_version);
+ 
+ 		// check for app state
+ 		if (gs_plugin_swupd_is_installed (bundle_name))
+@@ -172,6 +174,40 @@ gs_plugin_swupd_get_clrversion (void)
+ 	return version;
+ }
+ 
++void
++gs_plugin_swupd_get_bundle_content (GsApp *app)
++{
++	g_autofree gchar *file_path = g_strdup_printf ("%s/%s",
++						       GS_PLUGIN_SWUPD_BUNDLES_PATH,
++						       gs_app_get_name (app));
++	g_autofree gchar *file_content = NULL;
++	g_autofree gchar **file_lines = NULL;
++	guint i;
++
++	if (!g_file_get_contents (file_path,
++				  &file_content,
++				  NULL,
++				  NULL))
++		g_error ("Error reading from %s", file_path);
++
++	file_lines = g_strsplit (file_content, "\n", -1);
++	for (i = 0; file_lines[i] != NULL; i++) {
++		if (g_str_has_prefix (file_lines[i], "#"))
++			continue;
++		if (g_str_has_prefix (file_lines[i], "include")) {
++			g_autofree gchar **tmp = g_strsplit (file_lines[i],
++							     "(",
++							     -1);
++			g_autofree gchar **tmp2 = g_strsplit (tmp[1],
++							      ")",
++							      -1);
++			gchar *included = g_strdup_printf ("bundle:%s", tmp2[0]);
++			gs_app_add_bundle_content (app, included);
++		} else
++			gs_app_add_bundle_content (app, file_lines[i]);
++	}
++}
++
+ void
+ gs_plugin_swupd_get_apps (GsPlugin *plugin, GPtrArray *bundles)
+ {
+@@ -183,16 +219,12 @@ gs_plugin_swupd_get_apps (GsPlugin *plugin, GPtrArray *bundles)
+ 	bundles_dir = g_dir_open (GS_PLUGIN_SWUPD_BUNDLES_PATH, 0, NULL);
+ 	while ((fname = g_dir_read_name (bundles_dir)) != NULL) {
+ 		GsApp *app = NULL;
+-		g_autofree gchar *full_path = g_strdup_printf ("%s/%s",
+-							       GS_PLUGIN_SWUPD_BUNDLES_PATH,
+-							       fname);
+-		if (g_file_test (full_path, G_FILE_TEST_IS_DIR))
+-			continue;
+ 		if (g_strcmp0 (fname, "packages") == 0)
+ 			continue;
+ 
+ 		app = gs_plugin_swupd_get_app (plugin, fname,
+ 					       gs_plugin_swupd_get_app_desc (fname));
++		gs_plugin_swupd_get_bundle_content (app);
+ 		gs_app_set_metadata (app, "ClearLinux::bundle-type", "bundle");
+ 		g_ptr_array_add (bundles, app);
+ 	}
 diff --git a/src/gs-details-page.c b/src/gs-details-page.c
-index 3e7d3196..ee3559ba 100644
+index 3e7d3196..8934c998 100644
 --- a/src/gs-details-page.c
 +++ b/src/gs-details-page.c
-@@ -698,6 +698,7 @@ gs_details_page_refresh_screenshots (GsDetailsPage *self)
+@@ -66,12 +66,15 @@ struct _GsDetailsPage
+ 	gboolean		 show_all_reviews;
+ 	GSettings		*settings;
+ 
++	GtkWidget               *label_details_license_title;
++	GtkWidget               *label_details_version_title;
+ 	GtkWidget		*application_details_icon;
+ 	GtkWidget		*application_details_summary;
+ 	GtkWidget		*application_details_title;
+ 	GtkWidget		*box_addons;
+ 	GtkWidget		*box_details;
+ 	GtkWidget		*box_details_description;
++	GtkWidget               *box_details_bundle_content;
+ 	GtkWidget		*box_details_support;
+ 	GtkWidget		*box_progress;
+ 	GtkWidget		*box_progress2;
+@@ -698,6 +701,7 @@ gs_details_page_refresh_screenshots (GsDetailsPage *self)
  				screenshots->len > 0);
  	if (screenshots->len == 0) {
  		gs_container_remove_all (GTK_CONTAINER (self->box_details_screenshot_thumbnails));
@@ -22,6 +243,145 @@ index 3e7d3196..ee3559ba 100644
  		return;
  	}
  
+@@ -866,6 +870,11 @@ gs_details_page_refresh_size (GsDetailsPage *self)
+ 	    gs_app_get_size_download (self->app) != GS_APP_SIZE_UNKNOWABLE) {
+ 		g_autofree gchar *size = NULL;
+ 		size = g_format_size (gs_app_get_size_download (self->app));
++		if (size) {
++			gtk_widget_hide (self->label_details_size_download_title);
++			gtk_widget_hide (self->label_details_size_download_value);
++			return;
++		}
+ 		gtk_label_set_label (GTK_LABEL (self->label_details_size_download_value), size);
+ 		gtk_widget_show (self->label_details_size_download_title);
+ 		gtk_widget_show (self->label_details_size_download_value);
+@@ -889,7 +898,9 @@ gs_details_page_refresh_all (GsDetailsPage *self)
+ 	guint64 updated;
+ 	guint64 user_integration_bf;
+ 	gboolean show_support_box = FALSE;
++	GPtrArray *bundle_content = NULL;
+ 	g_autoptr(GError) error = NULL;
++	guint i;
+ 
+ 	/* change widgets */
+ 	tmp = gs_app_get_name (self->app);
+@@ -914,6 +925,30 @@ gs_details_page_refresh_all (GsDetailsPage *self)
+ 	tmp = gs_app_get_description (self->app);
+ 	gs_details_page_set_description (self, tmp);
+ 
++	/* CLR customizations for the details view  */
++	bundle_content = gs_app_get_bundle_content (self->app);
++	gs_container_remove_all	(GTK_CONTAINER (self->box_details_bundle_content));
++
++	for (i = 0; i < bundle_content->len; i++) {
++		gchar *pname = g_ptr_array_index (bundle_content, i);
++		GtkWidget *lab = gtk_label_new (pname);
++		GtkStyleContext *context = NULL;
++		gtk_label_set_line_wrap (GTK_LABEL (lab), TRUE);
++		gtk_label_set_max_width_chars (GTK_LABEL (lab), 40);
++		gtk_label_set_selectable (GTK_LABEL (lab), TRUE);
++		gtk_widget_set_visible (lab, TRUE);
++		gtk_widget_set_can_focus (lab, FALSE);
++		g_object_set (lab,
++			      "xalign", 0.0,
++			      NULL);
++
++		context = gtk_widget_get_style_context (lab);
++		gtk_style_context_add_class (context, "details_license_unknown");
++
++		gtk_box_pack_start (self->box_details_bundle_content, lab, FALSE, FALSE, 0);
++	}
++	gtk_widget_set_visible (self->box_details_bundle_content, TRUE);
++
+ 	/* set the icon */
+ 	pixbuf = gs_app_get_pixbuf (self->app);
+ 	if (pixbuf != NULL) {
+@@ -957,7 +992,8 @@ gs_details_page_refresh_all (GsDetailsPage *self)
+ 	if (tmp == NULL) {
+ 		gtk_widget_set_visible (self->button_details_license_free, FALSE);
+ 		gtk_widget_set_visible (self->button_details_license_nonfree, FALSE);
+-		gtk_widget_set_visible (self->button_details_license_unknown, TRUE);
++		gtk_widget_set_visible (self->button_details_license_unknown, FALSE);
++      		gtk_widget_set_visible (GTK_LABEL (self->label_details_license_title), FALSE);
+ 	} else if (gs_app_get_license_is_free (self->app)) {
+ 		gtk_widget_set_visible (self->button_details_license_free, TRUE);
+ 		gtk_widget_set_visible (self->button_details_license_nonfree, FALSE);
+@@ -975,6 +1011,8 @@ gs_details_page_refresh_all (GsDetailsPage *self)
+ 	} else {
+ 		/* TRANSLATORS: this is where the version is not known */
+ 		gtk_label_set_label (GTK_LABEL (self->label_details_version_value), C_("version", "Unknown"));
++		gtk_widget_set_visible (GTK_LABEL (self->label_details_version_title), FALSE);
++      		gtk_widget_set_visible (GTK_LABEL (self->label_details_version_value), FALSE);
+ 	}
+ 
+ 	/* refresh size information */
+@@ -1036,6 +1074,8 @@ gs_details_page_refresh_all (GsDetailsPage *self)
+ 		/* TRANSLATORS: this is where we don't know the origin of the
+ 		 * application */
+ 		gtk_label_set_label (GTK_LABEL (self->label_details_origin_value), C_("origin", "Unknown"));
++		gtk_widget_set_visible(GTK_LABEL (self->label_details_origin_value), FALSE);
++		gtk_widget_set_visible(GTK_LABEL (self->label_details_origin_title), FALSE);
+ 	} else {
+ 		gtk_label_set_label (GTK_LABEL (self->label_details_origin_value), tmp);
+ 	}
+@@ -1080,6 +1120,9 @@ gs_details_page_refresh_all (GsDetailsPage *self)
+ 		break;
+ 	}
+ 
++	if (!kudos)
++		gtk_widget_set_visible (self->grid_details_kudo, FALSE);		
++	
+ 	/* are we trying to replace something in the baseos */
+ 	gtk_widget_set_visible (self->infobar_details_package_baseos,
+ 				gs_app_has_quirk (self->app, AS_APP_QUIRK_COMPULSORY) &&
+@@ -2412,6 +2455,7 @@ gs_details_page_class_init (GsDetailsPageClass *klass)
+ 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, box_addons);
+ 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, box_details);
+ 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, box_details_description);
++	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, box_details_bundle_content);
+ 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, box_details_support);
+ 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, box_progress);
+ 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, box_progress2);
+@@ -2444,6 +2488,7 @@ gs_details_page_class_init (GsDetailsPageClass *klass)
+ 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, button_details_license_free);
+ 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, button_details_license_nonfree);
+ 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, button_details_license_unknown);
++	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, label_details_license_title);
+ 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, label_details_origin_title);
+ 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, label_details_origin_value);
+ 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, label_details_size_download_title);
+@@ -2453,6 +2498,7 @@ gs_details_page_class_init (GsDetailsPageClass *klass)
+ 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, label_details_updated_title);
+ 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, label_details_updated_value);
+ 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, label_details_version_value);
++       	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, label_details_version_title);
+ 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, label_failed);
+ 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, list_box_addons);
+ 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, box_reviews);
+diff --git a/src/gs-details-page.ui b/src/gs-details-page.ui
+index 9836384d..e128fc6b 100644
+--- a/src/gs-details-page.ui
++++ b/src/gs-details-page.ui
+@@ -493,6 +493,19 @@
+                             <property name="position">4</property>
+                           </packing>
+                         </child>
++			<!-- CLR customizations for the detail view -->
++			<child>
++			  <object class="GtkBox" id="box_details_bundle_content">
++			    <property name="visible">False</property>
++			    <property name="can_focus">False</property>
++			    <property name="margin_bottom">14</property>
++                            <property name="orientation">vertical</property>
++                            <property name="spacing">18</property>
++                            <child>
++                              <placeholder/>
++                            </child>
++			  </object>
++			</child>
+                         <child>
+                           <object class="GsInfoBar" id="infobar_details_app_repo">
+                             <property name="visible">True</property>
 -- 
 2.20.1
 
