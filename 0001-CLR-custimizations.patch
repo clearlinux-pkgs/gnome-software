@@ -1,4 +1,4 @@
-From 45b1198464adbb8f25141d28ae6fd8bd0069b3c5 Mon Sep 17 00:00:00 2001
+From cdb9d78d822bb79494c619c55811b8c73a21daaf Mon Sep 17 00:00:00 2001
 From: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@intel.com>
 Date: Wed, 27 Feb 2019 16:42:33 -0600
 Subject: [PATCH] CLR custimizations
@@ -6,6 +6,7 @@ Subject: [PATCH] CLR custimizations
 hide the screenshot section if there is not screenshot available
 add the option to add the bundle content (packages and includes)
 remove details if there is not information for them
+remove rate stars widget if the quirk AS_APP_QUIRK_NOT_REVIEWABLE
 
 TODO:
 add a better style to the labels that make a different between
@@ -13,15 +14,16 @@ the packages and the includes
 
 Signed-off-by: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@intel.com>
 ---
- lib/gs-app.c                    | 71 +++++++++++++++++++++++++++++++++
- lib/gs-app.h                    |  9 +++++
+ lib/gs-app.c                    | 73 +++++++++++++++++++++++++++++++++
+ lib/gs-app.h                    |  9 ++++
  plugins/swupd/gs-plugin-swupd.c | 42 ++++++++++++++++---
  src/gs-details-page.c           | 48 +++++++++++++++++++++-
  src/gs-details-page.ui          | 13 ++++++
- 5 files changed, 177 insertions(+), 6 deletions(-)
+ src/gs-star-widget.c            |  4 ++
+ 6 files changed, 183 insertions(+), 6 deletions(-)
 
 diff --git a/lib/gs-app.c b/lib/gs-app.c
-index 6fbfeac4..8657c8c9 100644
+index 6fbfeac4..2f0d4483 100644
 --- a/lib/gs-app.c
 +++ b/lib/gs-app.c
 @@ -79,6 +79,7 @@ typedef struct
@@ -108,7 +110,16 @@ index 6fbfeac4..8657c8c9 100644
  /**
   * gs_app_get_url:
   * @app: a #GsApp
-@@ -4349,6 +4419,7 @@ gs_app_init (GsApp *app)
+@@ -2858,6 +2928,8 @@ gs_app_get_rating (GsApp *app)
+ {
+ 	GsAppPrivate *priv = gs_app_get_instance_private (app);
+ 	g_return_val_if_fail (GS_IS_APP (app), -1);
++	if (gs_app_has_quirk (app, AS_APP_QUIRK_NOT_REVIEWABLE))
++		return G_MAXINT;
+ 	return priv->rating;
+ }
+ 
+@@ -4349,6 +4421,7 @@ gs_app_init (GsApp *app)
  	priv->sources = g_ptr_array_new_with_free_func (g_free);
  	priv->source_ids = g_ptr_array_new_with_free_func (g_free);
  	priv->categories = g_ptr_array_new_with_free_func (g_free);
@@ -382,6 +393,21 @@ index 9836384d..e128fc6b 100644
                          <child>
                            <object class="GsInfoBar" id="infobar_details_app_repo">
                              <property name="visible">True</property>
+diff --git a/src/gs-star-widget.c b/src/gs-star-widget.c
+index 675a3969..04383d1d 100644
+--- a/src/gs-star-widget.c
++++ b/src/gs-star-widget.c
+@@ -128,6 +128,10 @@ gs_star_widget_refresh (GsStarWidget *star)
+ 					     "star-enabled" : "star-disabled");
+ 		gtk_widget_set_visible (w, TRUE);
+ 		gtk_container_add (GTK_CONTAINER (priv->box1), w);
++		if (priv->rating == G_MAXINT) {
++			gtk_widget_set_visible(w, FALSE);
++		}
++
+ 	}
+ }
+ 
 -- 
 2.20.1
 
