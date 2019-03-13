@@ -1,4 +1,4 @@
-From cdb9d78d822bb79494c619c55811b8c73a21daaf Mon Sep 17 00:00:00 2001
+From f966eeee164840d046cec54ff1959377225595f1 Mon Sep 17 00:00:00 2001
 From: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@intel.com>
 Date: Wed, 27 Feb 2019 16:42:33 -0600
 Subject: [PATCH] CLR custimizations
@@ -16,11 +16,11 @@ Signed-off-by: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@inte
 ---
  lib/gs-app.c                    | 73 +++++++++++++++++++++++++++++++++
  lib/gs-app.h                    |  9 ++++
- plugins/swupd/gs-plugin-swupd.c | 42 ++++++++++++++++---
+ plugins/swupd/gs-plugin-swupd.c | 37 +++++++++++++++++
  src/gs-details-page.c           | 48 +++++++++++++++++++++-
  src/gs-details-page.ui          | 13 ++++++
  src/gs-star-widget.c            |  4 ++
- 6 files changed, 183 insertions(+), 6 deletions(-)
+ 6 files changed, 183 insertions(+), 1 deletion(-)
 
 diff --git a/lib/gs-app.c b/lib/gs-app.c
 index 6fbfeac4..2f0d4483 100644
@@ -148,7 +148,7 @@ index f05779a2..c798562c 100644
  						 AsUrlKind	 kind);
  void		 gs_app_set_url			(GsApp		*app,
 diff --git a/plugins/swupd/gs-plugin-swupd.c b/plugins/swupd/gs-plugin-swupd.c
-index 3d921a1f..6e81ef18 100644
+index 3d921a1f..c3d80e34 100644
 --- a/plugins/swupd/gs-plugin-swupd.c
 +++ b/plugins/swupd/gs-plugin-swupd.c
 @@ -82,6 +82,7 @@ gs_plugin_swupd_get_app (GsPlugin *plugin,
@@ -208,17 +208,7 @@ index 3d921a1f..6e81ef18 100644
  void
  gs_plugin_swupd_get_apps (GsPlugin *plugin, GPtrArray *bundles)
  {
-@@ -183,16 +219,12 @@ gs_plugin_swupd_get_apps (GsPlugin *plugin, GPtrArray *bundles)
- 	bundles_dir = g_dir_open (GS_PLUGIN_SWUPD_BUNDLES_PATH, 0, NULL);
- 	while ((fname = g_dir_read_name (bundles_dir)) != NULL) {
- 		GsApp *app = NULL;
--		g_autofree gchar *full_path = g_strdup_printf ("%s/%s",
--							       GS_PLUGIN_SWUPD_BUNDLES_PATH,
--							       fname);
--		if (g_file_test (full_path, G_FILE_TEST_IS_DIR))
--			continue;
- 		if (g_strcmp0 (fname, "packages") == 0)
- 			continue;
+@@ -193,6 +229,7 @@ gs_plugin_swupd_get_apps (GsPlugin *plugin, GPtrArray *bundles)
  
  		app = gs_plugin_swupd_get_app (plugin, fname,
  					       gs_plugin_swupd_get_app_desc (fname));
