@@ -1,4 +1,4 @@
-From f966eeee164840d046cec54ff1959377225595f1 Mon Sep 17 00:00:00 2001
+From 96796b3c95e225a271f27adeec4426e83ac4bcbf Mon Sep 17 00:00:00 2001
 From: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@intel.com>
 Date: Wed, 27 Feb 2019 16:42:33 -0600
 Subject: [PATCH] CLR custimizations
@@ -7,20 +7,22 @@ hide the screenshot section if there is not screenshot available
 add the option to add the bundle content (packages and includes)
 remove details if there is not information for them
 remove rate stars widget if the quirk AS_APP_QUIRK_NOT_REVIEWABLE
+add support for screenshots taken them from clr-bundle-screenshots package
 
 TODO:
-add a better style to the labels that make a different between
+- add a better style to the labels that make a different between
 the packages and the includes
 
 Signed-off-by: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@intel.com>
 ---
- lib/gs-app.c                    | 73 +++++++++++++++++++++++++++++++++
+ lib/gs-app.c                    | 73 +++++++++++++++++++++++++++++
  lib/gs-app.h                    |  9 ++++
- plugins/swupd/gs-plugin-swupd.c | 37 +++++++++++++++++
- src/gs-details-page.c           | 48 +++++++++++++++++++++-
+ plugins/swupd/gs-plugin-swupd.c | 81 +++++++++++++++++++++++++++++++++
+ plugins/swupd/meson.build       |  4 +-
+ src/gs-details-page.c           | 48 ++++++++++++++++++-
  src/gs-details-page.ui          | 13 ++++++
  src/gs-star-widget.c            |  4 ++
- 6 files changed, 183 insertions(+), 1 deletion(-)
+ 7 files changed, 230 insertions(+), 2 deletions(-)
 
 diff --git a/lib/gs-app.c b/lib/gs-app.c
 index 6fbfeac4..2f0d4483 100644
@@ -148,10 +150,76 @@ index f05779a2..c798562c 100644
  						 AsUrlKind	 kind);
  void		 gs_app_set_url			(GsApp		*app,
 diff --git a/plugins/swupd/gs-plugin-swupd.c b/plugins/swupd/gs-plugin-swupd.c
-index 3d921a1f..c3d80e34 100644
+index 3d921a1f..95e7a76c 100644
 --- a/plugins/swupd/gs-plugin-swupd.c
 +++ b/plugins/swupd/gs-plugin-swupd.c
-@@ -82,6 +82,7 @@ gs_plugin_swupd_get_app (GsPlugin *plugin,
+@@ -21,17 +21,23 @@
+ 
+ #include <gnome-software.h>
+ #include <glib/gstdio.h>
++#include <curl/curl.h>
+ 
+ #define GS_PLUGIN_SWUPD_CATEGORY "PackageManager"
+ 
+ #define GS_PLUGIN_SWUPD_BUNDLES_URL "https://clearlinux.org/documentation/clear-linux/concepts/bundles-about"
+ 
++/* TODO: remove localhost and replace for a real url */
++#define GS_PLUGIN_SWUPD_BUNDLE_SCREENSHOTS_URL "http://localhost/screenshots"
++#define GS_PLUGIN_SWUPD_BUNDLE_SCREENSHOTS_DEFAULT_NAME "default"
++
+ // FileSystem
+ #define GS_PLUGIN_SWUPD_VERSION_FILE "/usr/share/clear/version"
+ #define GS_PLUGIN_SWUPD_BUNDLES_PATH "/usr/share/clr-bundles"
+ #define GS_PLUGIN_SWUPD_BUNDLES_INSTALLED_PATH "/usr/share/clear/bundles"
+ #define GS_PLUGIN_SWUPD_BUNDLES_ICON_PATH "/usr/share/clear/bundle-icons"
+ #define GS_PLUGIN_SWUPD_BUNDLES_DEFAULT_ICON_PATH GS_PLUGIN_SWUPD_BUNDLES_ICON_PATH"/bundle.svg"
++#define GS_PLUGIN_SWUPD_BUNDLES_SCREENSHOT_PATH "/usr/share/clear/bundle-screenshots"
+ 
+ struct GsPluginData {
+ 	GPtrArray *bundles;
+@@ -77,11 +83,49 @@ gs_plugin_swupd_is_installed (gchar *bundle_name)
+ 	return ret;
+ }
+ 
++void
++gs_plugin_swupd_set_screenshots (GsApp *app, const gchar *version)
++{
++	GPtrArray *screenshots = NULL;
++	g_autofree gchar *screenshots_path = g_strdup_printf ("%s/%s",
++							     GS_PLUGIN_SWUPD_BUNDLES_SCREENSHOT_PATH,
++							     gs_app_get_name (app));
++	g_autofree gchar *fname = NULL;
++	g_autoptr(GDir) *screenshots_dir = NULL;
++
++	screenshots = gs_app_get_screenshots (app);
++
++	if (!g_file_test (screenshots_path, G_FILE_TEST_IS_DIR)) {
++		return;
++	}
++
++	screenshots_dir = g_dir_open (screenshots_path, 0, NULL);
++	while ((fname = g_dir_read_name (screenshots_dir)) != NULL) {
++		g_autoptr(AsScreenshot) ss = NULL;
++		g_autoptr(AsImage) im = NULL;
++		char *img_full_path = g_strdup_printf ("file://%s/%s/%s",
++								  GS_PLUGIN_SWUPD_BUNDLES_SCREENSHOT_PATH,
++								  gs_app_get_name (app),
++								  fname);
++		im = as_image_new();
++		as_image_set_kind (im, AS_IMAGE_KIND_SOURCE);
++		as_image_set_url (im, img_full_path);
++		ss = as_screenshot_new ();
++		if (screenshots->len <= 0)
++			as_screenshot_set_kind (ss, AS_SCREENSHOT_KIND_DEFAULT);
++		else
++			as_screenshot_set_kind (ss, AS_SCREENSHOT_KIND_NORMAL);
++		as_screenshot_add_image (ss, im);
++		gs_app_add_screenshot (app, ss);
++	}
++}
++
+ GsApp *
+ gs_plugin_swupd_get_app (GsPlugin *plugin,
  			 const gchar *bundle_name,
  			 const gchar *desc)
  {
@@ -159,7 +227,7 @@ index 3d921a1f..c3d80e34 100644
  	gchar *icon_path = NULL;
  	g_autofree gchar *bundleid = NULL;
  	GsApp *app = NULL;
-@@ -110,6 +111,7 @@ gs_plugin_swupd_get_app (GsPlugin *plugin,
+@@ -110,6 +154,7 @@ gs_plugin_swupd_get_app (GsPlugin *plugin,
  		gs_app_add_quirk (app, AS_APP_QUIRK_NOT_LAUNCHABLE);
  		gs_app_add_quirk (app, AS_APP_QUIRK_NOT_REVIEWABLE);
  		gs_app_add_quirk (app, AS_APP_QUIRK_PROVENANCE);
@@ -167,7 +235,15 @@ index 3d921a1f..c3d80e34 100644
  
  		// check for app state
  		if (gs_plugin_swupd_is_installed (bundle_name))
-@@ -172,6 +174,40 @@ gs_plugin_swupd_get_clrversion (void)
+@@ -120,6 +165,7 @@ gs_plugin_swupd_get_app (GsPlugin *plugin,
+ 		gs_app_add_category (app, GS_PLUGIN_SWUPD_CATEGORY);
+ 		gs_app_set_summary (app, GS_APP_QUALITY_NORMAL, desc);
+ 		gs_app_set_description (app, GS_APP_QUALITY_NORMAL, desc);
++		gs_plugin_swupd_set_screenshots (app, priv->clr_version);
+ 		gs_app_set_management_plugin (app, gs_plugin_get_name (plugin));
+ 		gs_plugin_cache_add (plugin, bundleid, app);
+ 	}
+@@ -172,6 +218,40 @@ gs_plugin_swupd_get_clrversion (void)
  	return version;
  }
  
@@ -208,7 +284,7 @@ index 3d921a1f..c3d80e34 100644
  void
  gs_plugin_swupd_get_apps (GsPlugin *plugin, GPtrArray *bundles)
  {
-@@ -193,6 +229,7 @@ gs_plugin_swupd_get_apps (GsPlugin *plugin, GPtrArray *bundles)
+@@ -193,6 +273,7 @@ gs_plugin_swupd_get_apps (GsPlugin *plugin, GPtrArray *bundles)
  
  		app = gs_plugin_swupd_get_app (plugin, fname,
  					       gs_plugin_swupd_get_app_desc (fname));
@@ -216,6 +292,26 @@ index 3d921a1f..c3d80e34 100644
  		gs_app_set_metadata (app, "ClearLinux::bundle-type", "bundle");
  		g_ptr_array_add (bundles, app);
  	}
+diff --git a/plugins/swupd/meson.build b/plugins/swupd/meson.build
+index dfac7d7d..47ee6d3d 100644
+--- a/plugins/swupd/meson.build
++++ b/plugins/swupd/meson.build
+@@ -2,6 +2,8 @@ cargs = ['-DG_LOG_DOMAIN="GsPluginSwupd"']
+ cargs += ['-DLOCALPLUGINDIR="' + meson.current_build_dir() + '"']
+ cargs += ['-DLOCALPLUGINDIR_CORE="' + meson.current_build_dir() + '/../core"']
+ 
++libcurl = dependency('libcurl', version: '>=7.19.0')
++
+ shared_module(
+   'gs_plugin_swupd',
+   sources : 'gs-plugin-swupd.c',
+@@ -12,5 +14,5 @@ shared_module(
+   install : true,
+   install_dir: plugin_dir,
+   c_args : cargs,
+-  dependencies : [appstream_glib, gio_unix, gtk, libsoup]
++  dependencies : [appstream_glib, gio_unix, gtk, libsoup, libcurl]
+ )
 diff --git a/src/gs-details-page.c b/src/gs-details-page.c
 index 3e7d3196..8934c998 100644
 --- a/src/gs-details-page.c
