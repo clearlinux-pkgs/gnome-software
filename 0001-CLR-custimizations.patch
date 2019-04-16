@@ -1,4 +1,4 @@
-From 2f2544e202410545367858afcaee90c9125771fc Mon Sep 17 00:00:00 2001
+From 464e237b79b336711b3423760260554a316cab63 Mon Sep 17 00:00:00 2001
 From: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@intel.com>
 Date: Wed, 27 Feb 2019 16:42:33 -0600
 Subject: [PATCH] CLR custimizations
@@ -10,6 +10,7 @@ remove rate stars widget if the quirk AS_APP_QUIRK_NOT_REVIEWABLE
 add support for screenshots taken them from clr-bundle-screenshots package
 load content from the json in cdn instead read every bundle metafile
 add custom categories and integrate flatpak to them
+add support for swupd-3rd-party content
 
 TODO:
 - add a better style to the labels that make a different between
@@ -17,15 +18,29 @@ the packages and the includes
 
 Signed-off-by: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@intel.com>
 ---
- lib/gs-app.c                     |  73 +++++++
- lib/gs-app.h                     |   9 +
- plugins/core/gs-desktop-common.c |  27 ---
- plugins/swupd/gs-plugin-swupd.c  | 348 +++++++++++++++++++++----------
- plugins/swupd/meson.build        |   2 +-
- src/gs-details-page.c            |  48 ++++-
- src/gs-details-page.ui           |  13 ++
- src/gs-star-widget.c             |   4 +
- 8 files changed, 383 insertions(+), 141 deletions(-)
+ lib/gs-app.c                              |  73 +++++
+ lib/gs-app.h                              |   9 +
+ plugins/core/gs-desktop-common.c          |  27 --
+ plugins/swupd/gs-plugin-swupd-3rd_party.c | 378 ++++++++++++++++++++++
+ plugins/swupd/gs-plugin-swupd.c           | 348 +++++++++++++-------
+ plugins/swupd/meson.build                 |  15 +-
+ src/gnome-software.gresource.xml          |   1 +
+ src/gs-application.c                      |   8 +
+ src/gs-details-page.c                     |  48 ++-
+ src/gs-details-page.ui                    |  13 +
+ src/gs-menus.ui                           |   4 +
+ src/gs-shell.c                            |  15 +
+ src/gs-shell.h                            |   1 +
+ src/gs-star-widget.c                      |   4 +
+ src/gs-thirdparty-dialog.c                | 109 +++++++
+ src/gs-thirdparty-dialog.h                |  44 +++
+ src/gs-thirdparty-dialog.ui               |  84 +++++
+ src/meson.build                           |   1 +
+ 18 files changed, 1041 insertions(+), 141 deletions(-)
+ create mode 100644 plugins/swupd/gs-plugin-swupd-3rd_party.c
+ create mode 100644 src/gs-thirdparty-dialog.c
+ create mode 100644 src/gs-thirdparty-dialog.h
+ create mode 100644 src/gs-thirdparty-dialog.ui
 
 diff --git a/lib/gs-app.c b/lib/gs-app.c
 index 6fbfeac4..2f0d4483 100644
@@ -193,6 +208,390 @@ index bfb24a45..4f2810ab 100644
  	{ NULL }
  };
  
+diff --git a/plugins/swupd/gs-plugin-swupd-3rd_party.c b/plugins/swupd/gs-plugin-swupd-3rd_party.c
+new file mode 100644
+index 00000000..1683ff52
+--- /dev/null
++++ b/plugins/swupd/gs-plugin-swupd-3rd_party.c
+@@ -0,0 +1,378 @@
++/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*-
++ *
++ * Licensed under the GNU General Public License Version 2
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
++ */
++
++//#include <config.h>
++
++#include <gnome-software.h>
++#include <glib/gstdio.h>
++#include <json-glib/json-glib.h>
++
++#define SWUPD_FORMAT_FILE "/usr/share/defaults/swupd/format"
++#define THIRDPARTY_CHROOT_DIR "/opt/3rd-party/chroot"
++
++gboolean
++is_installed (gchar *encoded_name)
++{
++	g_autofree gchar *chroot = g_strdup_printf ("%s/%s", THIRDPARTY_CHROOT_DIR, encoded_name);
++	g_autofree gchar *toml = g_strdup_printf ("%s.toml", chroot);
++	return g_file_test (chroot, (G_FILE_TEST_EXISTS | G_FILE_TEST_IS_DIR)) &&
++		g_file_test (toml, (G_FILE_TEST_EXISTS | G_FILE_TEST_IS_REGULAR));
++}
++
++gchar *
++handle_quoted_str (char *str)
++{
++	gchar *tmp = NULL;
++	if (g_str_has_prefix (str, "\""))
++		tmp = &str[1];
++	else
++		tmp = str;
++	if (g_str_has_suffix (str, "\""))
++		str[strlen (str) -1] = '\0';
++	return tmp;
++}
++
++void
++add_bundle_content (GsApp *app, gchar *content)
++{
++	gchar *all_content = g_strndup(&content[1], strlen(content) - 2);
++	gchar **content_array = NULL;
++	gint i;
++	all_content = g_strchug(all_content);
++	content_array = g_strsplit (all_content, ",", 0);
++	for (i = 0; content_array[i] != NULL && g_strcmp0(content_array[i], "") != 0; i++) {
++		g_debug ("bundle %s includes \"%s\"", gs_app_get_name (app), content_array[i]);
++		gs_app_add_bundle_content (app, handle_quoted_str(content_array[i]));
++	}
++}
++
++gboolean
++from_toml_to_app (GKeyFile *key_file, GsApp *app, GError **error)
++{
++	g_autofree gchar *app_name = NULL;
++	g_autofree gchar *app_desc = NULL;
++	gchar *url = gs_app_get_metadata_item (app, "swupd-thirdparty::url");
++	g_autofree gchar *to_encode = NULL;
++	g_autofree gchar *encoded_name = NULL;
++	g_autofree gchar *content = NULL;
++
++	/* Get Name */
++	app_name = g_key_file_get_string (key_file, "bundle", "name", error);
++	if (app_name == NULL) {
++		g_debug ("error finding key in key file: %s", (*error)->message);
++		return FALSE;
++	}
++	gs_app_set_id (app, g_strconcat ("org.clearlinux.", handle_quoted_str(app_name), NULL));
++	gs_app_set_name (app, GS_APP_QUALITY_NORMAL, handle_quoted_str(app_name));
++
++	/* Get Description */
++	app_desc = g_key_file_get_string (key_file, "bundle", "description", error);
++	if (app_desc == NULL) {
++		g_debug ("error finding key in key file: %s", (*error)->message);
++		return FALSE;
++	}
++
++	gs_app_set_description (app, GS_APP_QUALITY_NORMAL, handle_quoted_str(app_desc));
++	gs_app_set_summary (app, GS_APP_QUALITY_NORMAL, handle_quoted_str(app_desc));
++
++	content = g_key_file_get_string (key_file, "bundle", "includes", error);
++	if (content == NULL) {
++		return FALSE;
++	}
++
++	add_bundle_content (app, content);
++
++	gs_app_set_pixbuf (app, gdk_pixbuf_new_from_file ("/usr/share/clear/bundle-icons/bundle.svg", NULL));
++	gs_app_set_kind (app, AS_APP_KIND_DESKTOP);
++	gs_app_add_quirk (app, AS_APP_QUIRK_NOT_LAUNCHABLE);
++	gs_app_add_quirk (app, AS_APP_QUIRK_NOT_REVIEWABLE);
++	gs_app_add_quirk (app, AS_APP_QUIRK_PROVENANCE);
++
++	to_encode = g_strconcat (url, &app_name[1], NULL);
++	encoded_name = g_base64_encode (to_encode, strlen(to_encode));
++	gs_app_set_metadata (app, "swupd-thirdpaty::base64-name", encoded_name);
++
++	g_debug ("encoded_name %s", encoded_name);
++
++	if (is_installed (encoded_name))
++		gs_app_set_state (app, AS_APP_STATE_INSTALLED);
++	else
++		gs_app_set_state (app, AS_APP_STATE_AVAILABLE);
++
++	return TRUE;
++}
++
++gboolean
++gs_plugin_refine_app (GsPlugin *plugin,
++		      GsApp *app,
++		      GsPluginRefineFlags flags,
++		      GCancellable *cancellable,
++		      GError **error)
++{
++	g_autofree gchar *format = NULL;
++	g_autoptr(GBytes) version = NULL;
++	g_autofree gchar *version_str = NULL;
++	g_autoptr(GBytes) user_config = NULL;
++	g_autofree gchar *url_version = NULL;
++	g_autofree gchar *url_cert = NULL;
++	g_autofree gchar *url_user_config = NULL;
++	g_autoptr (GsApp) app_dl = gs_app_new (gs_plugin_get_name (plugin));
++	g_autoptr(GKeyFile) key_file = g_key_file_new ();
++	
++	gchar *base_url = gs_app_get_metadata_item (app, "swupd-thirdparty::url");
++	if (!base_url)
++		return TRUE;
++
++	if(!g_file_get_contents (SWUPD_FORMAT_FILE, &format, NULL, error)) {
++		g_debug ("Error: %s", (*error)->message);
++		return FALSE;
++	}
++
++	g_debug ("app name: %s", gs_app_get_name (app));
++	url_version = g_strdup_printf ("%s/version/format%s/latest", base_url, format);
++	gs_app_set_summary_missing (app_dl, "Downloading bundles metadata");
++	version = gs_plugin_download_data (plugin, app_dl, url_version, NULL, error);
++        if (version == NULL) {
++                g_debug ("error: %s with the url: %s", (*error)->message, url_version);
++                return FALSE;
++        }
++
++	version_str = g_strndup (g_bytes_get_data (version, NULL), g_bytes_get_size (version));
++
++	url_user_config = g_strdup_printf ("%s/%s/user-config.toml", base_url, version_str);
++	user_config = gs_plugin_download_data (plugin, app_dl, url_user_config, NULL, error);
++	if (user_config == NULL) {
++		g_debug ("error: %s with the url: %s", (*error)->message, url_user_config);
++		return FALSE;
++	}
++
++	url_cert = g_strdup_printf ("%s/%s/Swupd_Root.pem", base_url, version_str);
++	gs_app_set_metadata (app, "swupd-thirdparty::url-cert", url_cert);
++
++	/* Read Toml file */
++	if (!g_key_file_load_from_bytes (key_file, user_config, G_KEY_FILE_NONE, error)) {
++		g_debug ("error loading key file: %s", (*error)->message);
++		return FALSE;
++	}
++
++	if (!from_toml_to_app (key_file, app, error)) {
++		return FALSE;
++	}
++
++	gs_app_set_url (app, AS_URL_KIND_HOMEPAGE, base_url);
++	gs_app_set_version (app, version_str);
++
++	return TRUE;
++}
++
++void
++gs_plugin_adopt_app (GsPlugin *plugin,
++		     GsApp *app)
++{
++	gchar *url = gs_app_get_metadata_item (app, "swupd-thirdparty::url");
++	if (url) {
++		gs_app_set_management_plugin (app, gs_plugin_get_name(plugin));
++	}
++}
++
++static gboolean
++thirdparty_install_watcher(GIOChannel *channel,
++			   GIOCondition cond,
++			   gpointer user_data)
++{
++	g_autofree gchar *output = NULL;
++	gsize size;
++	GsApp *app = GS_APP(user_data);
++
++	if (cond == G_IO_HUP) {
++		g_io_channel_unref (channel);
++		return FALSE;
++	}
++
++	g_io_channel_read_line (channel, &output, &size, NULL, NULL);
++	g_debug ("output: \n%s\n", output);
++	return TRUE;
++}
++
++static void
++thirdparty_cancel_cb (GCancellable *cancellable, gpointer user_data)
++{
++	g_autofree gchar *cmd = NULL;
++	g_debug ("canceling process");
++	/* TODO: remove sudo and use the pid in user_data to kill swupd */
++        cmd = g_strdup_printf ("sudo pkill -9 swupd-3rd-party");
++        g_spawn_command_line_async (cmd, NULL);
++}
++
++gboolean
++gs_plugin_app_install (GsPlugin *plugin,                                                                                                           
++                       GsApp *app,
++                       GCancellable *cancellable,
++                       GError **error)
++{
++	gchar *url_cert = NULL;
++	gchar *url = NULL;
++	g_autofree gchar *cmd = NULL;
++	g_autofree gchar *local_cert = NULL;
++	g_autoptr(GsApp) app_dl = gs_app_new (gs_plugin_get_name (plugin));
++
++	if (g_strcmp0 (gs_plugin_get_name (plugin), gs_app_get_management_plugin (app)) != 0)
++		return TRUE;
++
++	url_cert = gs_app_get_metadata_item (app, "swupd-thirdparty::url-cert");
++	if (url_cert == NULL) {
++		g_debug ("swud-thirdparty::url-cert not found in metadata for app %s", gs_app_get_name (app));
++		return FALSE;
++	}
++
++	local_cert = gs_utils_get_cache_filename ("swupd-certs", "SWUPD_ROOT.pem", GS_UTILS_CACHE_FLAG_WRITEABLE, error);
++	if (local_cert == NULL)
++		return FALSE;
++
++	gs_app_set_summary_missing (app_dl,
++				    "Downloading swupd-3rd-party cert…");
++	if (!gs_plugin_download_file (plugin, app_dl, url_cert, local_cert, cancellable, error)) {
++		return FALSE;
++	}
++
++	url = gs_app_get_metadata_item (app, "swupd-thirdparty::url");
++	if (url == NULL) {
++		g_debug ("swupd-thirdpatry::url not found in metadata for app %s", gs_app_get_name (app));
++		return TRUE;
++	}
++
++	cmd = g_strdup_printf ("/usr/bin/clrtrust add %s && /usr/bin/swupd-3rd-party add %s", local_cert, url);
++
++	/* IMPROVEMENT: change pkexec for something in C */
++	gchar *argv[] = {"/usr/bin/pkexec", "/usr/bin/bash", "-c", cmd, NULL};
++	gint child_stdout, child_stderr;
++	GIOChannel *out_ch, *err_ch;
++	GPid child_pid;
++	int status;
++
++	gs_app_set_state (app, AS_APP_STATE_INSTALLING);
++	g_debug ("execution of %s", cmd);
++	g_spawn_async_with_pipes (NULL, argv, NULL, G_SPAWN_DO_NOT_REAP_CHILD, NULL,
++				  NULL, &child_pid, NULL, &child_stdout,
++				  &child_stderr, error);
++	if (*error != NULL) {
++		g_error ("Spawning child failed: %s", (*error)->message);
++		return FALSE;
++	}
++
++	out_ch = g_io_channel_unix_new ( child_stdout );
++	err_ch = g_io_channel_unix_new ( child_stderr );
++
++	g_io_add_watch (out_ch, G_IO_IN | G_IO_HUP, (GIOFunc)thirdparty_install_watcher, (gpointer)app);
++	g_io_add_watch (err_ch, G_IO_IN | G_IO_HUP, (GIOFunc)thirdparty_install_watcher, (gpointer)app);
++
++	g_signal_connect (cancellable, "cancelled", G_CALLBACK (thirdparty_cancel_cb), (gpointer)&child_pid);
++
++	wait(&status);
++	g_debug ("command status \"%s\" status: %d", cmd, status);
++	gs_app_set_progress (app, 100);
++	if (!status)
++		gs_app_set_state (app, AS_APP_STATE_INSTALLED);
++	else
++		gs_app_set_state (app, AS_APP_STATE_AVAILABLE);
++
++	g_debug ("Installing bundle %s", gs_app_get_name (app));
++
++	return gs_app_get_state (app) == AS_APP_STATE_INSTALLED;
++}
++
++gboolean
++gs_plugin_app_remove (GsPlugin *plugin,
++		      GsApp *app,
++		      GCancellable *cancellable,
++		      GError **error)
++{
++	gchar *url = NULL;
++	g_autofree gchar *bname = NULL;
++	if (g_strcmp0 (gs_app_get_management_plugin (app),
++		       gs_plugin_get_name (plugin)) != 0)
++		return TRUE;
++
++	g_debug ("Removing bundle %s", gs_app_get_name (app));
++
++	/* IMPROVEMENT: change pkexec for something in C */
++	gchar *argv[] = {"/usr/bin/pkexec", "/usr/bin/swupd-3rd-party",
++			 "remove", gs_app_get_metadata_item(app, "swupd-thirdparty::url"),
++			 gs_app_get_name (app), NULL};
++	gchar *child_stdout=NULL;
++	gchar *child_stderr=NULL;
++	gint exit_status;
++	GPid child_pid;
++	g_autoptr(GError) error_swupd = NULL;
++
++	/* IMPROVEMENT: change pkexec for something in C */
++	gs_app_set_state (app, AS_APP_STATE_REMOVING);
++	g_spawn_sync (NULL, argv, NULL, G_SPAWN_DEFAULT, NULL,
++		      NULL, &child_stdout,
++		      &child_stderr, &exit_status, &error_swupd);
++	g_debug ("swupd output %s", child_stdout);
++	g_debug ("swupd stderr %s", child_stderr);
++	if (error_swupd != NULL) {
++		g_error ("Spawning child failed: %s", error_swupd->message);
++		return FALSE;
++	}
++
++	gs_app_set_state (app, AS_APP_STATE_AVAILABLE);
++	return TRUE;
++}
++
++gboolean
++gs_plugin_add_installed (GsPlugin *plugin,
++			 GsAppList *list,
++			 GCancellable *cancellable,
++			 GError **error)
++{
++	g_autoptr(GDir) chroot = NULL;
++	gchar *toml_name = NULL;
++
++	if (!g_file_test (THIRDPARTY_CHROOT_DIR, (G_FILE_TEST_EXISTS | G_FILE_TEST_IS_DIR)))
++		return TRUE;
++
++	chroot = g_dir_open (THIRDPARTY_CHROOT_DIR, 0, NULL);
++	while ((toml_name = g_dir_read_name (chroot)) != NULL) {
++		g_autofree gchar *toml_path = NULL;
++		g_autoptr(GKeyFile) key_file = g_key_file_new ();
++		g_autoptr(GsApp) app = NULL;
++		g_autofree gchar *url = NULL;
++		if (!g_str_has_suffix (toml_name, ".toml"))
++			continue;
++
++		toml_path = g_strdup_printf ("%s/%s", THIRDPARTY_CHROOT_DIR, toml_name);
++		if (!g_key_file_load_from_file (key_file, toml_path, G_KEY_FILE_NONE, error)) {
++			return FALSE;
++		}
++
++		url = g_key_file_get_string (key_file, "Bundle", "URL", error);
++		if (url == NULL) {
++			return FALSE;
++		}
++		url[strlen(url) - 1] = '\0';
++
++		app = gs_app_new (NULL);
++		gs_app_set_metadata (app, "swupd-thirdparty::url", &url[1]);
++		from_toml_to_app (key_file, app, error);
++		gs_app_list_add (list, g_steal_pointer (&app));
++	}
++	return TRUE;
++}
 diff --git a/plugins/swupd/gs-plugin-swupd.c b/plugins/swupd/gs-plugin-swupd.c
 index 3d921a1f..b1c0f8b3 100644
 --- a/plugins/swupd/gs-plugin-swupd.c
@@ -644,16 +1043,74 @@ index 3d921a1f..b1c0f8b3 100644
  	return TRUE;
  }
 diff --git a/plugins/swupd/meson.build b/plugins/swupd/meson.build
-index dfac7d7d..641575de 100644
+index dfac7d7d..12a86ac3 100644
 --- a/plugins/swupd/meson.build
 +++ b/plugins/swupd/meson.build
-@@ -12,5 +12,5 @@ shared_module(
+@@ -12,5 +12,18 @@ shared_module(
    install : true,
    install_dir: plugin_dir,
    c_args : cargs,
 -  dependencies : [appstream_glib, gio_unix, gtk, libsoup]
 +  dependencies : [appstream_glib, gio_unix, gtk, libsoup, plugin_libs]
++)
++
++shared_module(
++  'gs_plugin_swupd3dparty',
++  sources : 'gs-plugin-swupd-3rd_party.c',
++  include_directories : [
++    include_directories('../..'),
++    include_directories('../../lib'),
++  ],
++  install : true,
++  install_dir: plugin_dir,
++  c_args : cargs,
++  dependencies : [appstream_glib, gio_unix, gtk, libsoup, plugin_libs]
  )
+diff --git a/src/gnome-software.gresource.xml b/src/gnome-software.gresource.xml
+index 5ce90429..abf00049 100644
+--- a/src/gnome-software.gresource.xml
++++ b/src/gnome-software.gresource.xml
+@@ -21,6 +21,7 @@
+   <file preprocess="xml-stripblanks">gs-overview-page.ui</file>
+   <file preprocess="xml-stripblanks">gs-popular-tile.ui</file>
+   <file preprocess="xml-stripblanks">gs-prefs-dialog.ui</file>
++  <file preprocess="xml-stripblanks">gs-thirdparty-dialog.ui</file>
+   <file preprocess="xml-stripblanks">gs-removal-dialog.ui</file>
+   <file preprocess="xml-stripblanks">gs-repo-row.ui</file>
+   <file preprocess="xml-stripblanks">gs-repos-dialog.ui</file>
+diff --git a/src/gs-application.c b/src/gs-application.c
+index eeabb72d..1cfbf183 100644
+--- a/src/gs-application.c
++++ b/src/gs-application.c
+@@ -315,6 +315,12 @@ prefs_activated (GSimpleAction *action, GVariant *parameter, gpointer app)
+ 	gs_shell_show_prefs (GS_APPLICATION (app)->shell);
+ }
+ 
++static void
++thirdparty_activated (GSimpleAction *action, GVariant *parameter, gpointer app)
++{
++	gs_shell_show_thirdparty (GS_APPLICATION (app)->shell);
++}
++
+ static void
+ about_activated (GSimpleAction *action,
+ 		 GVariant      *parameter,
+@@ -328,6 +334,7 @@ about_activated (GSimpleAction *action,
+ 		"Allan Day",
+ 		"Ryan Lerch",
+ 		"William Jon McCann",
++		"Josue David Hernandez",
+ 		NULL
+ 	};
+ 	const gchar *copyright = "Copyright \xc2\xa9 2016 Richard Hughes, Matthias Clasen, Kalev Lember";
+@@ -802,6 +809,7 @@ static GActionEntry actions[] = {
+ static GActionEntry actions_after_loading[] = {
+ 	{ "sources", sources_activated, NULL, NULL, NULL },
+ 	{ "prefs", prefs_activated, NULL, NULL, NULL },
++	{ "thirdparty", thirdparty_activated, NULL, NULL, NULL },
+ 	{ "set-mode", set_mode_activated, "s", NULL, NULL },
+ 	{ "search", search_activated, "s", NULL, NULL },
+ 	{ "details", details_activated, "(ss)", NULL, NULL },
 diff --git a/src/gs-details-page.c b/src/gs-details-page.c
 index 3e7d3196..8934c998 100644
 --- a/src/gs-details-page.c
@@ -821,6 +1278,66 @@ index 9836384d..e128fc6b 100644
                          <child>
                            <object class="GsInfoBar" id="infobar_details_app_repo">
                              <property name="visible">True</property>
+diff --git a/src/gs-menus.ui b/src/gs-menus.ui
+index b9bebb39..c94c069c 100644
+--- a/src/gs-menus.ui
++++ b/src/gs-menus.ui
+@@ -12,6 +12,10 @@
+         <attribute name="label" translatable="yes">_Update Preferences</attribute>
+         <attribute name="action">app.prefs</attribute>
+       </item>
++      <item>
++        <attribute name="label" translatable="yes">Swupd third party content</attribute>
++        <attribute name="action">app.thirdparty</attribute>
++      </item>
+     </section>
+     <section>
+       <item>
+diff --git a/src/gs-shell.c b/src/gs-shell.c
+index 6f1cda81..7eefe2ce 100644
+--- a/src/gs-shell.c
++++ b/src/gs-shell.c
+@@ -39,6 +39,7 @@
+ #include "gs-extras-page.h"
+ #include "gs-repos-dialog.h"
+ #include "gs-prefs-dialog.h"
++#include "gs-thirdparty-dialog.h"
+ #include "gs-update-dialog.h"
+ #include "gs-update-monitor.h"
+ #include "gs-utils.h"
+@@ -2218,6 +2219,20 @@ gs_shell_show_prefs (GsShell *shell)
+ 				  G_CALLBACK (gtk_widget_destroy), dialog);
+ }
+ 
++void
++gs_shell_show_thirdparty (GsShell *shell)
++{
++	GsShellPrivate *priv = gs_shell_get_instance_private (shell);
++	GtkWidget *dialog;
++
++	dialog = gs_thirdparty_dialog_new (priv->main_window, priv->plugin_loader, shell);
++	gs_shell_modal_dialog_present (shell, GTK_DIALOG (dialog));
++
++	/* just destroy */
++	g_signal_connect_swapped (dialog, "response",
++				  G_CALLBACK (gtk_widget_destroy), dialog);
++}
++
+ void
+ gs_shell_show_app (GsShell *shell, GsApp *app)
+ {
+diff --git a/src/gs-shell.h b/src/gs-shell.h
+index a08d46ee..6ffd0c86 100644
+--- a/src/gs-shell.h
++++ b/src/gs-shell.h
+@@ -81,6 +81,7 @@ void		 gs_shell_install		(GsShell		*shell,
+ void		 gs_shell_show_installed_updates(GsShell	*shell);
+ void		 gs_shell_show_sources		(GsShell	*shell);
+ void		 gs_shell_show_prefs		(GsShell	*shell);
++void		 gs_shell_show_thirdparty      	(GsShell	*shell);
+ void		 gs_shell_show_app		(GsShell	*shell,
+ 						 GsApp		*app);
+ void		 gs_shell_show_category		(GsShell	*shell,
 diff --git a/src/gs-star-widget.c b/src/gs-star-widget.c
 index 675a3969..04383d1d 100644
 --- a/src/gs-star-widget.c
@@ -836,6 +1353,273 @@ index 675a3969..04383d1d 100644
  	}
  }
  
+diff --git a/src/gs-thirdparty-dialog.c b/src/gs-thirdparty-dialog.c
+new file mode 100644
+index 00000000..f2c18a6a
+--- /dev/null
++++ b/src/gs-thirdparty-dialog.c
+@@ -0,0 +1,109 @@
++/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*-
++ *
++ * Copyright (C) 2018 Richard Hughes <richard@hughsie.com>
++ *
++ * Licensed under the GNU General Public License Version 2
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
++ */
++
++#include "config.h"
++
++#include "gs-thirdparty-dialog.h"
++
++#include "gnome-software-private.h"
++#include "gs-common.h"
++#include "gs-os-release.h"
++#include "gs-repo-row.h"
++#include "gs-third-party-repo-row.h"
++#include "gs-shell.h"
++#include <glib/gi18n.h>
++
++struct _GsThirdPartyDialog
++{
++	GtkDialog	 parent_instance;
++	GsShell         *shell;
++
++	GCancellable	*cancellable;
++	GsPluginLoader	*plugin_loader;
++	GtkWidget	*thirdparty_url;
++	GtkWidget	*thirdparty_button;
++};
++
++G_DEFINE_TYPE (GsThirdPartyDialog, gs_thirdparty_dialog, GTK_TYPE_DIALOG)
++
++static void
++gs_thirdparty_dialog_dispose (GObject *object)
++{
++	GsThirdPartyDialog *dialog = GS_THIRDPARTY_DIALOG (object);
++	g_clear_object (&dialog->plugin_loader);
++	g_clear_object (&dialog->shell);
++	if (dialog->cancellable != NULL) {
++		g_cancellable_cancel (dialog->cancellable);
++		g_clear_object (&dialog->cancellable);
++	}
++
++	G_OBJECT_CLASS (gs_thirdparty_dialog_parent_class)->dispose (object);
++}
++
++void
++show_app (GtkWidget *widget, gpointer data)
++{
++	GsThirdPartyDialog *dialog = GS_THIRDPARTY_DIALOG (data);
++	GsApp *app = gs_app_new(NULL);
++	gs_app_set_metadata (app, "swupd-thirdparty::url", gtk_entry_get_text (dialog->thirdparty_url));
++	gs_shell_show_app (dialog->shell, app);
++}
++
++static void
++gs_thirdparty_dialog_init (GsThirdPartyDialog *dialog)
++{
++	dialog->cancellable = g_cancellable_new ();
++	gtk_widget_init_template (GTK_WIDGET (dialog));
++
++	g_signal_connect (G_OBJECT (dialog->thirdparty_button), "clicked",
++			  G_CALLBACK (show_app), dialog);
++	g_signal_connect (G_OBJECT (dialog->thirdparty_url), "activate",
++			  G_CALLBACK (show_app), dialog);
++}
++
++static void
++gs_thirdparty_dialog_class_init (GsThirdPartyDialogClass *klass)
++{
++	GObjectClass *object_class = G_OBJECT_CLASS (klass);
++	GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
++
++	object_class->dispose = gs_thirdparty_dialog_dispose;
++
++	gtk_widget_class_set_template_from_resource (widget_class, "/org/gnome/Software/gs-thirdparty-dialog.ui");
++	gtk_widget_class_bind_template_child (widget_class, GsThirdPartyDialog, thirdparty_url);
++	gtk_widget_class_bind_template_child (widget_class, GsThirdPartyDialog, thirdparty_button);
++}
++
++GtkWidget *
++gs_thirdparty_dialog_new (GtkWindow *parent, GsPluginLoader *plugin_loader, GsShell *shell)
++{
++	GsThirdPartyDialog *dialog;
++	dialog = g_object_new (GS_TYPE_THIRDPARTY_DIALOG,
++			       "use-header-bar", TRUE,
++			       "transient-for", parent,
++			       "modal", TRUE,
++			       NULL);
++	dialog->plugin_loader = g_object_ref (plugin_loader);
++	dialog->shell = g_object_ref (shell);
++	return GTK_WIDGET (dialog);
++}
++
++/* vim: set noexpandtab: */
+diff --git a/src/gs-thirdparty-dialog.h b/src/gs-thirdparty-dialog.h
+new file mode 100644
+index 00000000..b729b43d
+--- /dev/null
++++ b/src/gs-thirdparty-dialog.h
+@@ -0,0 +1,44 @@
++/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*-
++ *
++ * Copyright (C) 2018 Richard Hughes <richard@hughsie.com>
++ *
++ * Licensed under the GNU General Public License Version 2
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
++ */
++
++#ifndef GS_THIRDPARTY_DIALOG_H
++#define GS_THIRDPARTY_DIALOG_H
++
++#include <gtk/gtk.h>
++
++#include "gnome-software-private.h"
++#include "gs-shell.h"
++
++G_BEGIN_DECLS
++
++#define GS_TYPE_THIRDPARTY_DIALOG (gs_thirdparty_dialog_get_type ())
++
++G_DECLARE_FINAL_TYPE (GsThirdPartyDialog, gs_thirdparty_dialog, GS, THIRDPARTY_DIALOG, GtkDialog)
++
++GtkWidget	*gs_thirdparty_dialog_new		(GtkWindow	*parent,
++							 GsPluginLoader	*plugin_loader,
++							 GsShell *shell);
++
++G_END_DECLS
++
++#endif /* GS_THIRDPARTY_DIALOG_H */
++
++/* vim: set noexpandtab: */
+diff --git a/src/gs-thirdparty-dialog.ui b/src/gs-thirdparty-dialog.ui
+new file mode 100644
+index 00000000..7b64d0ac
+--- /dev/null
++++ b/src/gs-thirdparty-dialog.ui
+@@ -0,0 +1,84 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<interface>
++  <requires lib="gtk+" version="3.10"/>
++  <template class="GsThirdPartyDialog" parent="GtkDialog">
++    <property name="can_focus">False</property>
++    <property name="title" translatable="yes">Third Party Bundles</property>
++    <property name="modal">True</property>
++    <property name="destroy_with_parent">True</property>
++    <property name="type_hint">dialog</property>
++    <property name="resizable">False</property>
++    <property name="skip_taskbar_hint">True</property>
++    <property name="use_header_bar">1</property>
++    <child internal-child="headerbar">
++      <object class="GtkHeaderBar">
++        <child type="title">
++          <object class="GtkLabel" id="label_header">
++            <property name="can_focus">False</property>
++            <property name="visible">True</property>
++            <property name="label" translatable="yes">Third Party Bundles</property>
++            <property name="selectable">False</property>
++            <style>
++              <class name="title"/>
++            </style>
++          </object>
++        </child>
++      </object>
++    </child>
++    <child internal-child="vbox">
++      <object class="GtkBox" id="dialog-vbox1">
++        <property name="visible">True</property>
++        <property name="can_focus">False</property>
++        <property name="orientation">vertical</property>
++	<property name="margin_top">24</property>
++        <property name="margin_bottom">24</property>
++        <property name="margin_start">33</property>
++        <property name="margin_end">33</property>
++	<child>
++          <object class="GtkLabel">
++            <property name="visible">True</property>
++            <property name="can_focus">False</property>
++            <property name="label" translatable="yes">third party content url:</property>
++	    <property name="xalign">0</property>
++	    <attributes>
++              <attribute name="style" value="normal"/>
++              <attribute name="weight" value="bold"/>
++            </attributes>
++          </object>
++          <packing>
++            <property name="expand">False</property>
++            <property name="fill">True</property>
++            <property name="position">1</property>
++          </packing>
++        </child>
++        <child>
++          <object class="GtkEntry" id="thirdparty_url">
++            <property name="visible">True</property>
++            <property name="can_focus">True</property>
++            <property name="placeholder_text" translatable="yes">https://something.com/appname</property>
++	    <property name="width_chars">45</property>
++          </object>
++          <packing>
++            <property name="expand">False</property>
++            <property name="fill">True</property>
++            <property name="position">2</property>
++          </packing>
++        </child>
++        <child>
++          <object class="GtkButton" id="thirdparty_button">
++            <property name="label" translatable="yes">Submit</property>
++            <property name="visible">True</property>
++            <property name="can_focus">True</property>
++            <property name="receives_default">True</property>
++	    <property name="margin_top">10</property>
++          </object>
++          <packing>
++            <property name="expand">False</property>
++            <property name="fill">True</property>
++            <property name="position">3</property>
++          </packing>
++        </child>           
++      </object>
++    </child>
++  </template>
++</interface>
+diff --git a/src/meson.build b/src/meson.build
+index 2ea8f755..a6f3ac7a 100644
+--- a/src/meson.build
++++ b/src/meson.build
+@@ -45,6 +45,7 @@ gnome_software_sources = [
+   'gs-page.c',
+   'gs-popular-tile.c',
+   'gs-prefs-dialog.c',
++  'gs-thirdparty-dialog.c',
+   'gs-progress-button.c',
+   'gs-removal-dialog.c',
+   'gs-repos-dialog.c',
 -- 
 2.21.0
 
