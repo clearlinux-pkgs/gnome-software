@@ -4,7 +4,7 @@
 #
 Name     : gnome-software
 Version  : 3.30.6
-Release  : 27
+Release  : 28
 URL      : https://download.gnome.org/sources/gnome-software/3.30/gnome-software-3.30.6.tar.xz
 Source0  : https://download.gnome.org/sources/gnome-software/3.30/gnome-software-3.30.6.tar.xz
 Summary  : GNOME Software is a software center for GNOME
