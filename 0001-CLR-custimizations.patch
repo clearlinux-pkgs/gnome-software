@@ -1,4 +1,4 @@
-From 464e237b79b336711b3423760260554a316cab63 Mon Sep 17 00:00:00 2001
+From cc89e90f5f4e4ad95d5a6549f99af20192ad7c20 Mon Sep 17 00:00:00 2001
 From: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@intel.com>
 Date: Wed, 27 Feb 2019 16:42:33 -0600
 Subject: [PATCH] CLR custimizations
@@ -11,32 +11,35 @@ add support for screenshots taken them from clr-bundle-screenshots package
 load content from the json in cdn instead read every bundle metafile
 add custom categories and integrate flatpak to them
 add support for swupd-3rd-party content
+add recently added support
 
 TODO:
 - add a better style to the labels that make a different between
 the packages and the includes
+- find a better way to order the bundles by creation date
 
 Signed-off-by: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@intel.com>
 ---
  lib/gs-app.c                              |  73 +++++
  lib/gs-app.h                              |   9 +
  plugins/core/gs-desktop-common.c          |  27 --
- plugins/swupd/gs-plugin-swupd-3rd_party.c | 378 ++++++++++++++++++++++
- plugins/swupd/gs-plugin-swupd.c           | 348 +++++++++++++-------
+ plugins/swupd/gs-plugin-swupd-3rd_party.c | 378 +++++++++++++++++++++
+ plugins/swupd/gs-plugin-swupd.c           | 383 +++++++++++++++-------
  plugins/swupd/meson.build                 |  15 +-
  src/gnome-software.gresource.xml          |   1 +
  src/gs-application.c                      |   8 +
  src/gs-details-page.c                     |  48 ++-
  src/gs-details-page.ui                    |  13 +
  src/gs-menus.ui                           |   4 +
+ src/gs-overview-page.c                    |   2 +-
  src/gs-shell.c                            |  15 +
  src/gs-shell.h                            |   1 +
  src/gs-star-widget.c                      |   4 +
- src/gs-thirdparty-dialog.c                | 109 +++++++
+ src/gs-thirdparty-dialog.c                | 109 ++++++
  src/gs-thirdparty-dialog.h                |  44 +++
  src/gs-thirdparty-dialog.ui               |  84 +++++
  src/meson.build                           |   1 +
- 18 files changed, 1041 insertions(+), 141 deletions(-)
+ 19 files changed, 1077 insertions(+), 142 deletions(-)
  create mode 100644 plugins/swupd/gs-plugin-swupd-3rd_party.c
  create mode 100644 src/gs-thirdparty-dialog.c
  create mode 100644 src/gs-thirdparty-dialog.h
@@ -593,14 +596,15 @@ index 00000000..1683ff52
 +	return TRUE;
 +}
 diff --git a/plugins/swupd/gs-plugin-swupd.c b/plugins/swupd/gs-plugin-swupd.c
-index 3d921a1f..b1c0f8b3 100644
+index 3d921a1f..f91a54f4 100644
 --- a/plugins/swupd/gs-plugin-swupd.c
 +++ b/plugins/swupd/gs-plugin-swupd.c
-@@ -21,52 +21,58 @@
+@@ -21,52 +21,59 @@
  
  #include <gnome-software.h>
  #include <glib/gstdio.h>
 +#include <json-glib/json-glib.h>
++#include <fcntl.h>
  
  #define GS_PLUGIN_SWUPD_CATEGORY "PackageManager"
  
@@ -684,7 +688,7 @@ index 3d921a1f..b1c0f8b3 100644
  
  static gboolean
  gs_plugin_swupd_is_installed (gchar *bundle_name)
-@@ -77,11 +83,49 @@ gs_plugin_swupd_is_installed (gchar *bundle_name)
+@@ -77,11 +84,49 @@ gs_plugin_swupd_is_installed (gchar *bundle_name)
  	return ret;
  }
  
@@ -735,7 +739,7 @@ index 3d921a1f..b1c0f8b3 100644
  	gchar *icon_path = NULL;
  	g_autofree gchar *bundleid = NULL;
  	GsApp *app = NULL;
-@@ -110,16 +154,18 @@ gs_plugin_swupd_get_app (GsPlugin *plugin,
+@@ -110,16 +155,18 @@ gs_plugin_swupd_get_app (GsPlugin *plugin,
  		gs_app_add_quirk (app, AS_APP_QUIRK_NOT_LAUNCHABLE);
  		gs_app_add_quirk (app, AS_APP_QUIRK_NOT_REVIEWABLE);
  		gs_app_add_quirk (app, AS_APP_QUIRK_PROVENANCE);
@@ -755,7 +759,7 @@ index 3d921a1f..b1c0f8b3 100644
  		gs_app_set_management_plugin (app, gs_plugin_get_name (plugin));
  		gs_plugin_cache_add (plugin, bundleid, app);
  	}
-@@ -132,35 +178,6 @@ gs_plugin_swupd_equal (gconstpointer a, gconstpointer b)
+@@ -132,35 +179,6 @@ gs_plugin_swupd_equal (gconstpointer a, gconstpointer b)
  	return g_strcmp0 (gs_app_get_name ((GsApp*)a), (gchar *)b) == 0;
  }
  
@@ -791,7 +795,7 @@ index 3d921a1f..b1c0f8b3 100644
  gchar *
  gs_plugin_swupd_get_clrversion (void)
  {
-@@ -172,33 +189,144 @@ gs_plugin_swupd_get_clrversion (void)
+@@ -172,33 +190,144 @@ gs_plugin_swupd_get_clrversion (void)
  	return version;
  }
  
@@ -904,15 +908,15 @@ index 3d921a1f..b1c0f8b3 100644
 +		g_debug ("root object dont have a bundles member");
 +		return;
 +	}
-+
+ 
+-	bundles_dir = g_dir_open (GS_PLUGIN_SWUPD_BUNDLES_PATH, 0, NULL);
+-	while ((fname = g_dir_read_name (bundles_dir)) != NULL) {
 +	json_bundles_array = json_node_get_array (json_bundles);
 +	if (json_bundles_array == NULL) {
 +		g_debug ("the json element bundles is not an array");
 +		return;
 +	}
- 
--	bundles_dir = g_dir_open (GS_PLUGIN_SWUPD_BUNDLES_PATH, 0, NULL);
--	while ((fname = g_dir_read_name (bundles_dir)) != NULL) {
++
 +	for (i = 0; i < json_array_get_length (json_bundles_array); i++) {
 +		JsonNode *node;
 +		JsonObject *obj;
@@ -953,7 +957,7 @@ index 3d921a1f..b1c0f8b3 100644
  }
  
  void
-@@ -228,29 +356,37 @@ gs_plugin_add_categories (GsPlugin *plugin,
+@@ -228,29 +357,37 @@ gs_plugin_add_categories (GsPlugin *plugin,
  			  GCancellable *cancellable,
  			  GError **error)
  {
@@ -1010,7 +1014,7 @@ index 3d921a1f..b1c0f8b3 100644
  gboolean
  gs_plugin_add_category_apps (GsPlugin *plugin,
  			     GsCategory *category,
-@@ -260,27 +396,15 @@ gs_plugin_add_category_apps (GsPlugin *plugin,
+@@ -260,27 +397,15 @@ gs_plugin_add_category_apps (GsPlugin *plugin,
  {
  	GsPluginData *priv = gs_plugin_get_data (plugin);
  	guint i = 0;
@@ -1042,6 +1046,44 @@ index 3d921a1f..b1c0f8b3 100644
  	}
  	return TRUE;
  }
+@@ -507,3 +632,37 @@ gs_plugin_add_installed (GsPlugin *plugin,
+ 	}
+ 	return TRUE;
+ }
++
++static gint
++compare_bundles (gconstpointer a,
++		 gconstpointer b)
++{
++	g_autofree gchar *full_path_a = NULL;
++	g_autofree gchar *full_path_b = NULL;
++	struct statx buf_a, buf_b;
++
++	full_path_a = g_strdup_printf ("/usr/share/clr-bundles/%s", gs_app_get_name (*(GsApp**)a));
++	statx (AT_FDCWD, full_path_a, 0, STATX_BTIME, &buf_a);
++	full_path_b = g_strdup_printf ("/usr/share/clr-bundles/%s", gs_app_get_name (*(GsApp**)b));
++	statx (AT_FDCWD, full_path_b, 0, STATX_BTIME, &buf_b);
++
++	return buf_a.stx_btime.tv_sec - buf_b.stx_btime.tv_sec;
++}
++
++gboolean
++gs_plugin_add_recent (GsPlugin       *plugin,
++		      GsAppList      *list,
++		      guint64         age,
++		      GCancellable   *cancellable,
++		      GError         **error)
++{
++	GsPluginData *priv = gs_plugin_get_data (plugin);
++	guint i;
++
++	g_ptr_array_sort (priv->bundles, compare_bundles);
++	for (i = priv->bundles->len - 1; (i > priv->bundles->len - 11) && i > 0; i--) {
++		GsApp *app = g_ptr_array_index (priv->bundles, i);
++		gs_app_list_add (list, g_steal_pointer (&app));
++	}
++	return TRUE;
++}
 diff --git a/plugins/swupd/meson.build b/plugins/swupd/meson.build
 index dfac7d7d..12a86ac3 100644
 --- a/plugins/swupd/meson.build
@@ -1293,6 +1335,19 @@ index b9bebb39..c94c069c 100644
      </section>
      <section>
        <item>
+diff --git a/src/gs-overview-page.c b/src/gs-overview-page.c
+index 82a02383..5645e6e0 100644
+--- a/src/gs-overview-page.c
++++ b/src/gs-overview-page.c
+@@ -799,7 +799,7 @@ gs_overview_page_load (GsOverviewPage *self)
+ 		priv->loading_recent = TRUE;
+ 		plugin_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_GET_RECENT,
+ 						 "age", (guint64) (60 * 60 * 24 * 60),
+-						 "max-results", 20,
++						 "max-results", 30,
+ 							 "refine-flags", GS_PLUGIN_REFINE_FLAGS_REQUIRE_RATING |
+ 								 GS_PLUGIN_REFINE_FLAGS_REQUIRE_ICON,
+ 						 NULL);
 diff --git a/src/gs-shell.c b/src/gs-shell.c
 index 6f1cda81..7eefe2ce 100644
 --- a/src/gs-shell.c
