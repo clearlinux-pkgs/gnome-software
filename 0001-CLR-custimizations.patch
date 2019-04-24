@@ -1,4 +1,4 @@
-From e68b50c7d904c26e4a630700e44312abac7292a8 Mon Sep 17 00:00:00 2001
+From dafff0b3710017d7190efbc2c921135a523dcedd Mon Sep 17 00:00:00 2001
 From: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@intel.com>
 Date: Wed, 27 Feb 2019 16:42:33 -0600
 Subject: [PATCH] CLR custimizations
@@ -13,6 +13,7 @@ add custom categories and integrate flatpak to them
 add support for swupd-3rd-party content
 add recently added support
 add scrooll for bundle content
+remove arrows to hide and show the categories and display all of them
 
 TODO:
 - add a better style to the labels that make a different between
@@ -32,7 +33,8 @@ Signed-off-by: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@inte
  src/gs-details-page.c                     |  48 ++-
  src/gs-details-page.ui                    |  28 ++
  src/gs-menus.ui                           |   4 +
- src/gs-overview-page.c                    |   2 +-
+ src/gs-overview-page.c                    |  49 +--
+ src/gs-overview-page.ui                   | 130 +-------
  src/gs-shell.c                            |  15 +
  src/gs-shell.h                            |   1 +
  src/gs-star-widget.c                      |   4 +
@@ -40,7 +42,7 @@ Signed-off-by: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@inte
  src/gs-thirdparty-dialog.h                |  44 +++
  src/gs-thirdparty-dialog.ui               |  84 +++++
  src/meson.build                           |   1 +
- 19 files changed, 1092 insertions(+), 142 deletions(-)
+ 20 files changed, 1105 insertions(+), 306 deletions(-)
  create mode 100644 plugins/swupd/gs-plugin-swupd-3rd_party.c
  create mode 100644 src/gs-thirdparty-dialog.c
  create mode 100644 src/gs-thirdparty-dialog.h
@@ -1352,7 +1354,7 @@ index b9bebb39..c94c069c 100644
      <section>
        <item>
 diff --git a/src/gs-overview-page.c b/src/gs-overview-page.c
-index 82a02383..5645e6e0 100644
+index 82a02383..ff1eacec 100644
 --- a/src/gs-overview-page.c
 +++ b/src/gs-overview-page.c
 @@ -799,7 +799,7 @@ gs_overview_page_load (GsOverviewPage *self)
@@ -1364,6 +1366,230 @@ index 82a02383..5645e6e0 100644
  							 "refine-flags", GS_PLUGIN_REFINE_FLAGS_REQUIRE_RATING |
  								 GS_PLUGIN_REFINE_FLAGS_REQUIRE_ICON,
  						 NULL);
+@@ -900,10 +900,6 @@ gs_overview_page_switch_to (GsPage *page, gboolean scroll_up)
+ 	widget = GTK_WIDGET (gtk_builder_get_object (priv->builder, "buttonbox_main"));
+ 	gtk_widget_show (widget);
+ 
+-	/* hide the expander */
+-	gtk_revealer_set_transition_duration (GTK_REVEALER (priv->categories_more), 0);
+-	gtk_revealer_set_reveal_child (GTK_REVEALER (priv->categories_more), FALSE);
+-
+ 	if (scroll_up) {
+ 		adj = gtk_scrolled_window_get_vadjustment (GTK_SCROLLED_WINDOW (priv->scrolledwindow_overview));
+ 		gtk_adjustment_set_value (adj, gtk_adjustment_get_lower (adj));
+@@ -916,36 +912,6 @@ gs_overview_page_switch_to (GsPage *page, gboolean scroll_up)
+ 	gs_overview_page_load (self);
+ }
+ 
+-static void
+-categories_more_revealer_changed_cb (GtkRevealer *revealer,
+-				     GParamSpec *pspec,
+-				     GsOverviewPage *self)
+-{
+-	GsOverviewPagePrivate *priv = gs_overview_page_get_instance_private (self);
+-	gboolean child_revealed = gtk_revealer_get_child_revealed (revealer);
+-
+-	gtk_widget_set_visible (priv->categories_expander_button_up,
+-				child_revealed);
+-	gtk_widget_set_visible (priv->categories_expander_button_down,
+-				!child_revealed);
+-}
+-
+-static void
+-gs_overview_page_categories_expander_down_cb (GtkButton *button, GsOverviewPage *self)
+-{
+-	GsOverviewPagePrivate *priv = gs_overview_page_get_instance_private (self);
+-	gtk_revealer_set_transition_duration (GTK_REVEALER (priv->categories_more), 250);
+-	gtk_revealer_set_reveal_child (GTK_REVEALER (priv->categories_more), TRUE);
+-}
+-
+-static void
+-gs_overview_page_categories_expander_up_cb (GtkButton *button, GsOverviewPage *self)
+-{
+-	GsOverviewPagePrivate *priv = gs_overview_page_get_instance_private (self);
+-	gtk_revealer_set_transition_duration (GTK_REVEALER (priv->categories_more), 250);
+-	gtk_revealer_set_reveal_child (GTK_REVEALER (priv->categories_more), FALSE);
+-}
+-
+ static void
+ third_party_response_cb (GtkInfoBar *info_bar,
+                          gint response_id,
+@@ -1034,11 +1000,6 @@ gs_overview_page_setup (GsPage *page,
+ 		gtk_container_add (GTK_CONTAINER (priv->box_recent), tile);
+ 	}
+ 
+-	/* handle category expander */
+-	g_signal_connect (priv->categories_expander_button_down, "clicked",
+-			  G_CALLBACK (gs_overview_page_categories_expander_down_cb), self);
+-	g_signal_connect (priv->categories_expander_button_up, "clicked",
+-			  G_CALLBACK (gs_overview_page_categories_expander_up_cb), self);
+ 	return TRUE;
+ }
+ 
+@@ -1048,10 +1009,6 @@ gs_overview_page_init (GsOverviewPage *self)
+ 	GsOverviewPagePrivate *priv = gs_overview_page_get_instance_private (self);
+ 	gtk_widget_init_template (GTK_WIDGET (self));
+ 	priv->settings = g_settings_new ("org.gnome.software");
+-	gtk_revealer_set_transition_duration (GTK_REVEALER (priv->categories_more), 250);
+-	g_signal_connect (priv->categories_more, "notify::child-revealed",
+-			  G_CALLBACK (categories_more_revealer_changed_cb),
+-			  self);
+ }
+ 
+ static void
+@@ -1126,10 +1083,6 @@ gs_overview_page_class_init (GsOverviewPageClass *klass)
+ 	gtk_widget_class_bind_template_child_private (widget_class, GsOverviewPage, recent_heading);
+ 	gtk_widget_class_bind_template_child_private (widget_class, GsOverviewPage, scrolledwindow_overview);
+ 	gtk_widget_class_bind_template_child_private (widget_class, GsOverviewPage, stack_overview);
+-	gtk_widget_class_bind_template_child_private (widget_class, GsOverviewPage, categories_expander_button_down);
+-	gtk_widget_class_bind_template_child_private (widget_class, GsOverviewPage, categories_expander_button_up);
+-	gtk_widget_class_bind_template_child_private (widget_class, GsOverviewPage, categories_expander_box);
+-	gtk_widget_class_bind_template_child_private (widget_class, GsOverviewPage, categories_more);
+ }
+ 
+ GsOverviewPage *
+diff --git a/src/gs-overview-page.ui b/src/gs-overview-page.ui
+index bb1e0122..1816d05b 100644
+--- a/src/gs-overview-page.ui
++++ b/src/gs-overview-page.ui
+@@ -200,124 +200,20 @@
+                           </packing>
+                         </child>
+                         <child>
+-                          <object class="GtkRevealer" id="categories_more">
+-                            <property name="visible">True</property>
+-                            <property name="transition-type">slide-up</property>
+-                            <child>
+-                              <object class="GtkFlowBox" id="flowbox_categories2">
+-                                <property name="visible">True</property>
+-                                <property name="can_focus">False</property>
+-                                <property name="margin-bottom">24</property>
+-                                <property name="row_spacing">14</property>
+-                                <property name="column_spacing">14</property>
+-                                <property name="homogeneous">True</property>
+-                                <property name="max_children_per_line">3</property>
+-                                <property name="selection_mode">none</property>
+-                                <accessibility>
+-                                  <relation target="category_heading" type="labelled-by"/>
+-                                </accessibility>
+-                              </object>
+-                            </child>
+-                          </object>
+-                          <packing>
+-                            <property name="expand">False</property>
+-                            <property name="fill">True</property>
+-                            <property name="position">5</property>
+-                          </packing>
+-                        </child>
+-                        <child>
+-                          <object class="GtkBox" id="categories_expander_box">
+-                            <property name="visible">True</property>
+-                            <property name="can_focus">False</property>
+-                            <property name="vexpand">False</property>
+-                            <property name="orientation">horizontal</property>
+-                            <property name="margin_start">24</property>
+-                            <property name="margin_end">24</property>
+-                            <property name="margin-bottom">12</property>
+-                            <child>
+-                              <object class="GtkSeparator" id="categories_expander_lsep">
+-                                <property name="visible">True</property>
+-                                <property name="orientation">horizontal</property>
+-                                <property name="expand">True</property>
+-                                <property name="valign">center</property>
+-                              </object>
+-                              <packing>
+-                                <property name="position">0</property>
+-                              </packing>
+-                            </child>
+-                            <child>
+-                              <object class="GtkButton" id="categories_expander_button_down">
+-                                <property name="visible">True</property>
+-                                <property name="can_focus">True</property>
+-                                <property name="receives_default">False</property>
+-                                <property name="margin-start">9</property>
+-                                <property name="margin-end">9</property>
+-                                <property name="valign">center</property>
+-                                <property name="relief">none</property>
+-                                <style>
+-                                  <class name="round-button"/>
+-                                </style>
+-                                <child>
+-                                  <object class="GtkImage" id="categories_expander_image_down">
+-                                    <property name="visible">True</property>
+-                                    <property name="can_focus">False</property>
+-                                    <property name="icon_name">pan-down-symbolic</property>
+-                                    <property name="icon_size">1</property>
+-                                  </object>
+-                                </child>
+-                              </object>
+-                              <packing>
+-                                <property name="expand">False</property>
+-                                <property name="fill">True</property>
+-                                <property name="position">1</property>
+-                              </packing>
+-                            </child>
+-                            <child>
+-                              <object class="GtkButton" id="categories_expander_button_up">
+-                                <property name="visible">False</property>
+-                                <property name="can_focus">True</property>
+-                                <property name="receives_default">False</property>
+-                                <property name="margin-start">9</property>
+-                                <property name="margin-end">9</property>
+-                                <property name="valign">center</property>
+-                                <property name="relief">none</property>
+-                                <style>
+-                                  <class name="round-button"/>
+-                                </style>
+-                                <child>
+-                                  <object class="GtkImage" id="categories_expander_image_up">
+-                                    <property name="visible">True</property>
+-                                    <property name="can_focus">False</property>
+-                                    <property name="icon_name">pan-up-symbolic</property>
+-                                    <property name="icon_size">1</property>
+-                                  </object>
+-                                </child>
+-                              </object>
+-                              <packing>
+-                                <property name="expand">False</property>
+-                                <property name="fill">True</property>
+-                                <property name="position">2</property>
+-                              </packing>
+-                            </child>
+-                            <child>
+-                              <object class="GtkSeparator" id="categories_expander_rsep">
+-                                <property name="visible">True</property>
+-                                <property name="orientation">horizontal</property>
+-                                <property name="expand">True</property>
+-                                <property name="valign">center</property>
+-                              </object>
+-                              <packing>
+-                                <property name="position">3</property>
+-                              </packing>
+-                            </child>
+-                          </object>
+-                          <packing>
+-                            <property name="expand">False</property>
+-                            <property name="fill">True</property>
+-                            <property name="position">6</property>
+-                          </packing>
++			  <object class="GtkFlowBox" id="flowbox_categories2">
++			    <property name="visible">True</property>
++			    <property name="can_focus">False</property>
++			    <property name="margin-bottom">24</property>
++			    <property name="row_spacing">14</property>
++			    <property name="column_spacing">14</property>
++			    <property name="homogeneous">True</property>
++			    <property name="max_children_per_line">3</property>
++			    <property name="selection_mode">none</property>
++			    <accessibility>
++			      <relation target="category_heading" type="labelled-by"/>
++			    </accessibility>
++			  </object>
+                         </child>
+-
+                         <child>
+                           <object class="GtkLabel" id="popular_heading">
+                             <property name="visible">True</property>
 diff --git a/src/gs-shell.c b/src/gs-shell.c
 index 6f1cda81..7eefe2ce 100644
 --- a/src/gs-shell.c
