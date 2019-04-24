@@ -1,4 +1,4 @@
-From cc89e90f5f4e4ad95d5a6549f99af20192ad7c20 Mon Sep 17 00:00:00 2001
+From e68b50c7d904c26e4a630700e44312abac7292a8 Mon Sep 17 00:00:00 2001
 From: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@intel.com>
 Date: Wed, 27 Feb 2019 16:42:33 -0600
 Subject: [PATCH] CLR custimizations
@@ -12,6 +12,7 @@ load content from the json in cdn instead read every bundle metafile
 add custom categories and integrate flatpak to them
 add support for swupd-3rd-party content
 add recently added support
+add scrooll for bundle content
 
 TODO:
 - add a better style to the labels that make a different between
@@ -29,7 +30,7 @@ Signed-off-by: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@inte
  src/gnome-software.gresource.xml          |   1 +
  src/gs-application.c                      |   8 +
  src/gs-details-page.c                     |  48 ++-
- src/gs-details-page.ui                    |  13 +
+ src/gs-details-page.ui                    |  28 ++
  src/gs-menus.ui                           |   4 +
  src/gs-overview-page.c                    |   2 +-
  src/gs-shell.c                            |  15 +
@@ -39,7 +40,7 @@ Signed-off-by: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@inte
  src/gs-thirdparty-dialog.h                |  44 +++
  src/gs-thirdparty-dialog.ui               |  84 +++++
  src/meson.build                           |   1 +
- 19 files changed, 1077 insertions(+), 142 deletions(-)
+ 19 files changed, 1092 insertions(+), 142 deletions(-)
  create mode 100644 plugins/swupd/gs-plugin-swupd-3rd_party.c
  create mode 100644 src/gs-thirdparty-dialog.c
  create mode 100644 src/gs-thirdparty-dialog.h
@@ -1297,24 +1298,39 @@ index 3e7d3196..8934c998 100644
  	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, list_box_addons);
  	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, box_reviews);
 diff --git a/src/gs-details-page.ui b/src/gs-details-page.ui
-index 9836384d..e128fc6b 100644
+index 9836384d..d2c33d7f 100644
 --- a/src/gs-details-page.ui
 +++ b/src/gs-details-page.ui
-@@ -493,6 +493,19 @@
+@@ -493,6 +493,34 @@
                              <property name="position">4</property>
                            </packing>
                          </child>
 +			<!-- CLR customizations for the detail view -->
 +			<child>
-+			  <object class="GtkBox" id="box_details_bundle_content">
-+			    <property name="visible">False</property>
-+			    <property name="can_focus">False</property>
-+			    <property name="margin_bottom">14</property>
-+                            <property name="orientation">vertical</property>
-+                            <property name="spacing">18</property>
-+                            <child>
-+                              <placeholder/>
-+                            </child>
++			  <object class="GtkScrolledWindow">
++			    <property name="visible">True</property>
++			    <property name="can_focus">True</property>
++			    <property name="shadow_type">none</property>
++			    <property name="min_content_height">300</property>
++			    <property name="max_content_height">500</property>
++			    <child>
++			      <object class="GtkViewport">
++				<property name="visible">True</property>
++				<property name="can_focus">False</property>
++				<child>
++				  <object class="GtkBox" id="box_details_bundle_content">
++				    <property name="visible">False</property>
++				    <property name="can_focus">False</property>
++				    <property name="margin_bottom">14</property>
++				    <property name="orientation">vertical</property>
++				    <property name="spacing">5</property>
++				    <child>
++				      <placeholder/>
++				    </child>
++				  </object>
++				</child>
++			      </object>
++			    </child>
 +			  </object>
 +			</child>
                          <child>
