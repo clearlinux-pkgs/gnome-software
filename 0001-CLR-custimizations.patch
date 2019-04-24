@@ -1,4 +1,4 @@
-From b6d100d2b52efeec6ca8048256ea2dc6f9984753 Mon Sep 17 00:00:00 2001
+From 41fe14c33ceb9a97e2416af4ea8673670d2bdc41 Mon Sep 17 00:00:00 2001
 From: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@intel.com>
 Date: Wed, 27 Feb 2019 16:42:33 -0600
 Subject: [PATCH] CLR custimizations
@@ -14,7 +14,7 @@ add support for swupd-3rd-party content
 add recently added support
 add scrooll for bundle content
 remove arrows to hide and show the categories and display all of them
-FIX: CLEAR-4248 and CLEAR-4249
+FIX: CLEAR-4248
 
 TODO:
 - add a better style to the labels that make a different between
