@@ -1,4 +1,4 @@
-From 41fe14c33ceb9a97e2416af4ea8673670d2bdc41 Mon Sep 17 00:00:00 2001
+From 25a9b13c7cb7ff64cf97d7386243d32b191192e7 Mon Sep 17 00:00:00 2001
 From: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@intel.com>
 Date: Wed, 27 Feb 2019 16:42:33 -0600
 Subject: [PATCH] CLR custimizations
@@ -15,6 +15,7 @@ add recently added support
 add scrooll for bundle content
 remove arrows to hide and show the categories and display all of them
 FIX: CLEAR-4248
+FIX: CLEAR-4376
 
 TODO:
 - add a better style to the labels that make a different between
@@ -27,7 +28,7 @@ Signed-off-by: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@inte
  lib/gs-app.h                              |   9 +
  plugins/core/gs-desktop-common.c          |  27 --
  plugins/swupd/gs-plugin-swupd-3rd_party.c | 378 ++++++++++++++++++++
- plugins/swupd/gs-plugin-swupd.c           | 398 ++++++++++++++++------
+ plugins/swupd/gs-plugin-swupd.c           | 406 ++++++++++++++++------
  plugins/swupd/meson.build                 |  15 +-
  src/gnome-software.gresource.xml          |   1 +
  src/gs-application.c                      |   8 +
@@ -43,7 +44,7 @@ Signed-off-by: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@inte
  src/gs-thirdparty-dialog.h                |  44 +++
  src/gs-thirdparty-dialog.ui               |  84 +++++
  src/meson.build                           |   1 +
- 20 files changed, 1119 insertions(+), 307 deletions(-)
+ 20 files changed, 1125 insertions(+), 309 deletions(-)
  create mode 100644 plugins/swupd/gs-plugin-swupd-3rd_party.c
  create mode 100644 src/gs-thirdparty-dialog.c
  create mode 100644 src/gs-thirdparty-dialog.h
@@ -600,7 +601,7 @@ index 00000000..1683ff52
 +	return TRUE;
 +}
 diff --git a/plugins/swupd/gs-plugin-swupd.c b/plugins/swupd/gs-plugin-swupd.c
-index 3d921a1f..0d4e4e88 100644
+index 3d921a1f..47fbddb3 100644
 --- a/plugins/swupd/gs-plugin-swupd.c
 +++ b/plugins/swupd/gs-plugin-swupd.c
 @@ -21,52 +21,59 @@
@@ -884,14 +885,14 @@ index 3d921a1f..0d4e4e88 100644
 +		g_debug ("error: %s with the url: %s", err->message, uri);
 +		return;
 +	}
-+
+ 
+-	g_autoptr(GDir) *bundles_dir = NULL;
 +	json_parser = json_parser_new ();
 +	if (!json_parser_load_from_data (json_parser, g_bytes_get_data(data, NULL), g_bytes_get_size(data), &err)) {
 +		g_debug ("error: the json content for bundles cannot be parsed");
 +		return;
 +	}
- 
--	g_autoptr(GDir) *bundles_dir = NULL;
++
 +	json_root = json_parser_get_root (json_parser);
 +	if (json_root == NULL) {
 +		g_debug ("error: get root node is not posible");
@@ -912,15 +913,15 @@ index 3d921a1f..0d4e4e88 100644
 +		g_debug ("root object dont have a bundles member");
 +		return;
 +	}
- 
--	bundles_dir = g_dir_open (GS_PLUGIN_SWUPD_BUNDLES_PATH, 0, NULL);
--	while ((fname = g_dir_read_name (bundles_dir)) != NULL) {
++
 +	json_bundles_array = json_node_get_array (json_bundles);
 +	if (json_bundles_array == NULL) {
 +		g_debug ("the json element bundles is not an array");
 +		return;
 +	}
-+
+ 
+-	bundles_dir = g_dir_open (GS_PLUGIN_SWUPD_BUNDLES_PATH, 0, NULL);
+-	while ((fname = g_dir_read_name (bundles_dir)) != NULL) {
 +	for (i = 0; i < json_array_get_length (json_bundles_array); i++) {
 +		JsonNode *node;
 +		JsonObject *obj;
@@ -1054,7 +1055,22 @@ index 3d921a1f..0d4e4e88 100644
  	}
  	return TRUE;
  }
-@@ -483,6 +612,10 @@ gs_plugin_add_search (GsPlugin *plugin,
+@@ -411,8 +540,12 @@ gs_plugin_app_remove (GsPlugin *plugin,
+ 		return FALSE;
+ 	}
+ 
+-	gs_app_set_state (app, AS_APP_STATE_AVAILABLE);
+-	return TRUE;
++	g_debug ("swupd bundle remove status %d", exit_status);
++	if (!exit_status)
++		gs_app_set_state (app, AS_APP_STATE_AVAILABLE);
++	else
++		gs_app_set_state (app, AS_APP_STATE_INSTALLED);
++	return gs_app_get_state (app) == AS_APP_STATE_AVAILABLE;
+ }
+ 
+ gboolean
+@@ -483,6 +616,10 @@ gs_plugin_add_search (GsPlugin *plugin,
  			GsApp *tmp = g_ptr_array_index (priv->bundles, j);
  			if (!g_str_has_prefix (gs_app_get_name (tmp), values[i]))
  				continue;
@@ -1065,7 +1081,7 @@ index 3d921a1f..0d4e4e88 100644
  			gs_app_list_add (list, tmp);
  		}
  	}
-@@ -500,10 +633,49 @@ gs_plugin_add_installed (GsPlugin *plugin,
+@@ -500,10 +637,49 @@ gs_plugin_add_installed (GsPlugin *plugin,
  
  	for (i = 0; i < priv->bundles->len; i++) {
  		GsApp *app = g_ptr_array_index (priv->bundles, i);
@@ -1103,7 +1119,7 @@ index 3d921a1f..0d4e4e88 100644
 +		      GError         **error)
 +{
 +	GsPluginData *priv = gs_plugin_get_data (plugin);
-+	guint i;
++	gint i;
 +
 +	g_ptr_array_sort (priv->bundles, compare_bundles);
 +	for (i = priv->bundles->len - 1; (i > priv->bundles->len - 11) && i > 0; i--) {
