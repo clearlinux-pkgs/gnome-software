@@ -1,4 +1,4 @@
-From 25a9b13c7cb7ff64cf97d7386243d32b191192e7 Mon Sep 17 00:00:00 2001
+From 179e6dea53505c8e7e13778cd98e7012700f0430 Mon Sep 17 00:00:00 2001
 From: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@intel.com>
 Date: Wed, 27 Feb 2019 16:42:33 -0600
 Subject: [PATCH] CLR custimizations
@@ -16,6 +16,8 @@ add scrooll for bundle content
 remove arrows to hide and show the categories and display all of them
 FIX: CLEAR-4248
 FIX: CLEAR-4376
+FIX: CLEAR-4249
+hide swupd 3rd party options
 
 TODO:
 - add a better style to the labels that make a different between
@@ -27,8 +29,8 @@ Signed-off-by: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@inte
  lib/gs-app.c                              |  73 ++++
  lib/gs-app.h                              |   9 +
  plugins/core/gs-desktop-common.c          |  27 --
- plugins/swupd/gs-plugin-swupd-3rd_party.c | 378 ++++++++++++++++++++
- plugins/swupd/gs-plugin-swupd.c           | 406 ++++++++++++++++------
+ plugins/swupd/gs-plugin-swupd-3rd_party.c | 378 +++++++++++++++++++
+ plugins/swupd/gs-plugin-swupd.c           | 429 +++++++++++++++-------
  plugins/swupd/meson.build                 |  15 +-
  src/gnome-software.gresource.xml          |   1 +
  src/gs-application.c                      |   8 +
@@ -44,7 +46,7 @@ Signed-off-by: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@inte
  src/gs-thirdparty-dialog.h                |  44 +++
  src/gs-thirdparty-dialog.ui               |  84 +++++
  src/meson.build                           |   1 +
- 20 files changed, 1125 insertions(+), 309 deletions(-)
+ 20 files changed, 1139 insertions(+), 318 deletions(-)
  create mode 100644 plugins/swupd/gs-plugin-swupd-3rd_party.c
  create mode 100644 src/gs-thirdparty-dialog.c
  create mode 100644 src/gs-thirdparty-dialog.h
@@ -601,7 +603,7 @@ index 00000000..1683ff52
 +	return TRUE;
 +}
 diff --git a/plugins/swupd/gs-plugin-swupd.c b/plugins/swupd/gs-plugin-swupd.c
-index 3d921a1f..47fbddb3 100644
+index 3d921a1f..011dd062 100644
 --- a/plugins/swupd/gs-plugin-swupd.c
 +++ b/plugins/swupd/gs-plugin-swupd.c
 @@ -21,52 +21,59 @@
@@ -1055,7 +1057,57 @@ index 3d921a1f..47fbddb3 100644
  	}
  	return TRUE;
  }
-@@ -411,8 +540,12 @@ gs_plugin_app_remove (GsPlugin *plugin,
+@@ -350,15 +479,14 @@ gs_plugin_app_install (GsPlugin *plugin,
+ 	gint child_stdout, child_stderr;
+ 	GIOChannel *out_ch, *err_ch;
+ 	GPid child_pid;
+-	g_autoptr(GError) err = NULL;
+ 	int status;
+ 
+ 	gs_app_set_state (app, AS_APP_STATE_INSTALLING);
+ 	g_spawn_async_with_pipes (NULL, argv, NULL, G_SPAWN_DO_NOT_REAP_CHILD, NULL,
+ 				  NULL, &child_pid, NULL, &child_stdout,
+-				  &child_stderr, &err);
+-	if (err != NULL) {
+-		g_error ("Spawning child failed: %s", err->message);
++				  &child_stderr, &error);
++	if (error != NULL && *error != NULL) {
++		g_error ("Spawning child failed: %s", (*error)->message);
+ 		return FALSE;
+ 	}
+ 
+@@ -373,8 +501,13 @@ gs_plugin_app_install (GsPlugin *plugin,
+ 	wait(&status);
+ 	if (!status)
+ 		gs_app_set_state (app, AS_APP_STATE_INSTALLED);
+-	else
++	else {
++		g_autofree gchar *str_error = NULL;
++		gint len;
+ 		gs_app_set_state (app, AS_APP_STATE_AVAILABLE);
++		g_io_channel_read_to_end (err_ch, &str_error, &len, error);
++		g_set_error (error, GS_PLUGIN_ERROR, GS_PLUGIN_ERROR_FAILED, g_strdelimit(str_error, "\n", '\t'));
++	}
+ 
+ 	return gs_app_get_state (app) == AS_APP_STATE_INSTALLED;
+ }
+@@ -398,21 +531,26 @@ gs_plugin_app_remove (GsPlugin *plugin,
+ 	gchar *child_stderr=NULL;
+ 	gint exit_status;
+ 	GPid child_pid;
+-	g_autoptr(GError) error_swupd = NULL;
+ 
+ 	gs_app_set_state (app, AS_APP_STATE_REMOVING);
+ 	g_spawn_sync (NULL, argv, NULL, G_SPAWN_DEFAULT, NULL,
+ 		      NULL, &child_stdout,
+-		      &child_stderr, &exit_status, &error_swupd);
++		      &child_stderr, &exit_status, error);
+ 	g_debug ("swupd output %s", child_stdout);
+ 	g_debug ("swupd stderr %s", child_stderr);
+-	if (error_swupd != NULL) {
+-		g_error ("Spawning child failed: %s", error_swupd->message);
++	if (error != NULL && *error != NULL) {
++		g_error ("Spawning child failed: %s", (*error)->message);
  		return FALSE;
  	}
  
@@ -1064,13 +1116,15 @@ index 3d921a1f..47fbddb3 100644
 +	g_debug ("swupd bundle remove status %d", exit_status);
 +	if (!exit_status)
 +		gs_app_set_state (app, AS_APP_STATE_AVAILABLE);
-+	else
++	else {
 +		gs_app_set_state (app, AS_APP_STATE_INSTALLED);
++		g_set_error (error, GS_PLUGIN_ERROR, GS_PLUGIN_ERROR_FAILED, g_strdelimit(child_stderr, "\n", '\t'));
++	}
 +	return gs_app_get_state (app) == AS_APP_STATE_AVAILABLE;
  }
  
  gboolean
-@@ -483,6 +616,10 @@ gs_plugin_add_search (GsPlugin *plugin,
+@@ -483,6 +621,10 @@ gs_plugin_add_search (GsPlugin *plugin,
  			GsApp *tmp = g_ptr_array_index (priv->bundles, j);
  			if (!g_str_has_prefix (gs_app_get_name (tmp), values[i]))
  				continue;
@@ -1081,7 +1135,7 @@ index 3d921a1f..47fbddb3 100644
  			gs_app_list_add (list, tmp);
  		}
  	}
-@@ -500,10 +637,49 @@ gs_plugin_add_installed (GsPlugin *plugin,
+@@ -500,10 +642,49 @@ gs_plugin_add_installed (GsPlugin *plugin,
  
  	for (i = 0; i < priv->bundles->len; i++) {
  		GsApp *app = g_ptr_array_index (priv->bundles, i);
@@ -1133,7 +1187,7 @@ index 3d921a1f..47fbddb3 100644
 +	return TRUE;
 +}
 diff --git a/plugins/swupd/meson.build b/plugins/swupd/meson.build
-index dfac7d7d..12a86ac3 100644
+index dfac7d7d..b84bebfe 100644
 --- a/plugins/swupd/meson.build
 +++ b/plugins/swupd/meson.build
 @@ -12,5 +12,18 @@ shared_module(
@@ -1142,20 +1196,20 @@ index dfac7d7d..12a86ac3 100644
    c_args : cargs,
 -  dependencies : [appstream_glib, gio_unix, gtk, libsoup]
 +  dependencies : [appstream_glib, gio_unix, gtk, libsoup, plugin_libs]
-+)
-+
-+shared_module(
-+  'gs_plugin_swupd3dparty',
-+  sources : 'gs-plugin-swupd-3rd_party.c',
-+  include_directories : [
-+    include_directories('../..'),
-+    include_directories('../../lib'),
-+  ],
-+  install : true,
-+  install_dir: plugin_dir,
-+  c_args : cargs,
-+  dependencies : [appstream_glib, gio_unix, gtk, libsoup, plugin_libs]
  )
++
++#shared_module(
++#  'gs_plugin_swupd3dparty',
++#  sources : 'gs-plugin-swupd-3rd_party.c',
++#  include_directories : [
++#    include_directories('../..'),
++#    include_directories('../../lib'),
++#  ],
++#  install : true,
++#  install_dir: plugin_dir,
++#  c_args : cargs,
++#  dependencies : [appstream_glib, gio_unix, gtk, libsoup, plugin_libs]
++#)
 diff --git a/src/gnome-software.gresource.xml b/src/gnome-software.gresource.xml
 index 5ce90429..abf00049 100644
 --- a/src/gnome-software.gresource.xml
@@ -1384,17 +1438,17 @@ index 9836384d..d2c33d7f 100644
                            <object class="GsInfoBar" id="infobar_details_app_repo">
                              <property name="visible">True</property>
 diff --git a/src/gs-menus.ui b/src/gs-menus.ui
-index b9bebb39..c94c069c 100644
+index b9bebb39..8f6cf312 100644
 --- a/src/gs-menus.ui
 +++ b/src/gs-menus.ui
 @@ -12,6 +12,10 @@
          <attribute name="label" translatable="yes">_Update Preferences</attribute>
          <attribute name="action">app.prefs</attribute>
        </item>
-+      <item>
++<!--  <item>
 +        <attribute name="label" translatable="yes">Swupd third party content</attribute>
 +        <attribute name="action">app.thirdparty</attribute>
-+      </item>
++      </item> -->
      </section>
      <section>
        <item>

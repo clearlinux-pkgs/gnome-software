@@ -1,0 +1,3 @@
+Configure miss: ../plugins/swupd/gs-plugin-swupd.c:509:3: warning: format not a string literal and no format arguments [-Wformat-security]
+
+Configure miss: ../plugins/swupd/gs-plugin-swupd.c:551:3: warning: format not a string literal and no format arguments [-Wformat-security]
