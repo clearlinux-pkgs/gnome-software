@@ -1,0 +1,6 @@
+install -m 0644 clearlinux/data/icons/hicolor/16x16/org.clearlinux.Software.png %{buildroot}/usr/share/icons/hicolor/16x16/apps/org.gnome.Software.png
+install -m 0644 clearlinux/data/icons/hicolor/22x22/org.clearlinux.Software.png %{buildroot}/usr/share/icons/hicolor/22x22/apps/org.gnome.Software.png
+install -m 0644 clearlinux/data/icons/hicolor/24x24/org.clearlinux.Software.png %{buildroot}/usr/share/icons/hicolor/24x24/apps/org.gnome.Software.png
+install -m 0644 clearlinux/data/icons/hicolor/48x48/org.clearlinux.Software.png %{buildroot}/usr/share/icons/hicolor/48x48/apps/org.gnome.Software.png
+install -m 0644 clearlinux/data/icons/hicolor/256x256/org.clearlinux.Software.png %{buildroot}/usr/share/icons/hicolor/256x256/apps/org.gnome.Software.png
+install -m 0644 clearlinux/data/icons/hicolor/scalable/org.clearlinux.Software.svg %{buildroot}/usr/share/icons/hicolor/scalable/apps/org.gnome.Software.svg

@@ -4,9 +4,10 @@
 #
 Name     : gnome-software
 Version  : 3.30.6
-Release  : 35
+Release  : 36
 URL      : https://download.gnome.org/sources/gnome-software/3.30/gnome-software-3.30.6.tar.xz
 Source0  : https://download.gnome.org/sources/gnome-software/3.30/gnome-software-3.30.6.tar.xz
+Source1  : http://localhost/cgit/projects/clr-software-icons/snapshot/clr-software-icons-1.tar.gz
 Summary  : GNOME Software is a software center for GNOME
 Group    : Development/Tools
 License  : GPL-2.0
@@ -136,6 +137,10 @@ man components for the gnome-software package.
 
 %prep
 %setup -q -n gnome-software-3.30.6
+cd ..
+%setup -q -T -D -n gnome-software-3.30.6 -b 1
+mkdir -p clearlinux
+cp -r %{_topdir}/BUILD/clr-software-icons-1/* %{_topdir}/BUILD/gnome-software-3.30.6/clearlinux
 %patch1 -p1
 %patch2 -p1
 
@@ -144,7 +149,7 @@ export http_proxy=http://127.0.0.1:9/
 export https_proxy=http://127.0.0.1:9/
 export no_proxy=localhost,127.0.0.1,0.0.0.0
 export LANG=C
-export SOURCE_DATE_EPOCH=1556899500
+export SOURCE_DATE_EPOCH=1556921490
 export LDFLAGS="${LDFLAGS} -fno-lto"
 CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" meson --prefix /usr --buildtype=plain -Denable-packagekit=false -Denable-ubuntuone=false -Denable-ubuntu-reviews=false -Denable-snap=false -Denable-gtk-doc=false  -Dpackagekit=false -Dfwupd=false  builddir
 ninja -v -C builddir
@@ -154,6 +159,14 @@ mkdir -p %{buildroot}/usr/share/package-licenses/gnome-software
 cp COPYING %{buildroot}/usr/share/package-licenses/gnome-software/COPYING
 DESTDIR=%{buildroot} ninja -C builddir install
 %find_lang gnome-software
+## install_append content
+install -m 0644 clearlinux/data/icons/hicolor/16x16/org.clearlinux.Software.png %{buildroot}/usr/share/icons/hicolor/16x16/apps/org.gnome.Software.png
+install -m 0644 clearlinux/data/icons/hicolor/22x22/org.clearlinux.Software.png %{buildroot}/usr/share/icons/hicolor/22x22/apps/org.gnome.Software.png
+install -m 0644 clearlinux/data/icons/hicolor/24x24/org.clearlinux.Software.png %{buildroot}/usr/share/icons/hicolor/24x24/apps/org.gnome.Software.png
+install -m 0644 clearlinux/data/icons/hicolor/48x48/org.clearlinux.Software.png %{buildroot}/usr/share/icons/hicolor/48x48/apps/org.gnome.Software.png
+install -m 0644 clearlinux/data/icons/hicolor/256x256/org.clearlinux.Software.png %{buildroot}/usr/share/icons/hicolor/256x256/apps/org.gnome.Software.png
+install -m 0644 clearlinux/data/icons/hicolor/scalable/org.clearlinux.Software.svg %{buildroot}/usr/share/icons/hicolor/scalable/apps/org.gnome.Software.svg
+## install_append end
 
 %files
 %defattr(-,root,root,-)
@@ -197,6 +210,7 @@ DESTDIR=%{buildroot} ninja -C builddir install
 /usr/share/icons/hicolor/32x32/apps/org.gnome.Software.png
 /usr/share/icons/hicolor/48x48/apps/org.gnome.Software.png
 /usr/share/icons/hicolor/scalable/apps/org.gnome.Software-symbolic.svg
+/usr/share/icons/hicolor/scalable/apps/org.gnome.Software.svg
 /usr/share/icons/hicolor/scalable/apps/software-installed-symbolic.svg
 /usr/share/metainfo/org.gnome.Software.Plugin.Epiphany.metainfo.xml
 /usr/share/metainfo/org.gnome.Software.Plugin.Flatpak.metainfo.xml
