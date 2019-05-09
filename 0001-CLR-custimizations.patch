@@ -1,4 +1,4 @@
-From 49c5e5efff1e2ab5770dfd4f4b0c99d3f185f2bd Mon Sep 17 00:00:00 2001
+From 4a740462051e48c9151289affc7cc3c2f21e3850 Mon Sep 17 00:00:00 2001
 From: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@intel.com>
 Date: Wed, 27 Feb 2019 16:42:33 -0600
 Subject: [PATCH] CLR custimizations
@@ -19,6 +19,7 @@ FIX: CLEAR-4376
 FIX: CLEAR-4249
 hide swupd 3rd party options
 set env proxy conf based in the gsettings conf
+add label to specify that software preferences just apply for gnome-extensions and flatpak
 
 TODO:
 - add a better style to the labels that make a different between
@@ -37,9 +38,10 @@ Signed-off-by: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@inte
  src/gs-application.c                      |  30 ++
  src/gs-details-page.c                     |  48 ++-
  src/gs-details-page.ui                    |  28 ++
- src/gs-menus.ui                           |   4 +
+ src/gs-menus.ui                           |   6 +-
  src/gs-overview-page.c                    |  49 +--
  src/gs-overview-page.ui                   | 130 +------
+ src/gs-prefs-dialog.ui                    |   2 +-
  src/gs-shell.c                            |  15 +
  src/gs-shell.h                            |   1 +
  src/gs-star-widget.c                      |   4 +
@@ -47,7 +49,7 @@ Signed-off-by: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@inte
  src/gs-thirdparty-dialog.h                |  44 +++
  src/gs-thirdparty-dialog.ui               |  84 +++++
  src/meson.build                           |   1 +
- 20 files changed, 1161 insertions(+), 318 deletions(-)
+ 21 files changed, 1163 insertions(+), 320 deletions(-)
  create mode 100644 plugins/swupd/gs-plugin-swupd-3rd_party.c
  create mode 100644 src/gs-thirdparty-dialog.c
  create mode 100644 src/gs-thirdparty-dialog.h
@@ -1480,11 +1482,15 @@ index 9836384d..d2c33d7f 100644
                            <object class="GsInfoBar" id="infobar_details_app_repo">
                              <property name="visible">True</property>
 diff --git a/src/gs-menus.ui b/src/gs-menus.ui
-index b9bebb39..8f6cf312 100644
+index b9bebb39..1c38240e 100644
 --- a/src/gs-menus.ui
 +++ b/src/gs-menus.ui
-@@ -12,6 +12,10 @@
-         <attribute name="label" translatable="yes">_Update Preferences</attribute>
+@@ -9,9 +9,13 @@
+         <attribute name="hidden-when">action-disabled</attribute>
+       </item>
+       <item>
+-        <attribute name="label" translatable="yes">_Update Preferences</attribute>
++        <attribute name="label" translatable="yes">Update Preferences (GNOME ext. and Flatpak)</attribute>
          <attribute name="action">app.prefs</attribute>
        </item>
 +<!--  <item>
@@ -1731,6 +1737,19 @@ index bb1e0122..1816d05b 100644
                          <child>
                            <object class="GtkLabel" id="popular_heading">
                              <property name="visible">True</property>
+diff --git a/src/gs-prefs-dialog.ui b/src/gs-prefs-dialog.ui
+index df9cf960..15fc7b36 100644
+--- a/src/gs-prefs-dialog.ui
++++ b/src/gs-prefs-dialog.ui
+@@ -16,7 +16,7 @@
+           <object class="GtkLabel" id="label_header">
+             <property name="can_focus">False</property>
+             <property name="visible">True</property>
+-            <property name="label" translatable="yes">Update Preferences</property>
++            <property name="label" translatable="yes">Update Preferences (GNOME ext. and Flatpak)</property>
+             <property name="selectable">False</property>
+             <style>
+               <class name="title"/>
 diff --git a/src/gs-shell.c b/src/gs-shell.c
 index 6f1cda81..7eefe2ce 100644
 --- a/src/gs-shell.c
