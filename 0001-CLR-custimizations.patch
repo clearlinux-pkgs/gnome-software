@@ -1,4 +1,4 @@
-From 34bde0e4e746dab7c8e11a69f19e5cf9e438e5c1 Mon Sep 17 00:00:00 2001
+From c413a7e3e1ad469e8e0c65ae8f45202a63f78626 Mon Sep 17 00:00:00 2001
 From: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@intel.com>
 Date: Wed, 27 Feb 2019 16:42:33 -0600
 Subject: [PATCH] CLR custimizations
@@ -22,6 +22,7 @@ set env proxy conf based in the gsettings conf
 add label to specify that software preferences just apply for gnome-extensions and flatpak
 add search per keywords
 fix segfault in install
+change proxy setup for lowercase env variables because flatpak use it
 
 TODO:
 - add a better style to the labels that make a different between
@@ -1269,7 +1270,7 @@ index 5ce90429..abf00049 100644
    <file preprocess="xml-stripblanks">gs-repo-row.ui</file>
    <file preprocess="xml-stripblanks">gs-repos-dialog.ui</file>
 diff --git a/src/gs-application.c b/src/gs-application.c
-index eeabb72d..9ec403d9 100644
+index eeabb72d..1e70dc58 100644
 --- a/src/gs-application.c
 +++ b/src/gs-application.c
 @@ -160,11 +160,13 @@ gs_application_initialize_plugins (GsApplication *app)
@@ -1290,7 +1291,7 @@ index eeabb72d..9ec403d9 100644
  	if (tmp != NULL)
  		plugin_whitelist = g_strsplit (tmp, ",", -1);
  
-+	tmp = g_getenv ("HTTP_PROXY");
++	tmp = g_getenv ("http_proxy");
 +	if (tmp == NULL) {
 +		g_autoptr(GSettings) http = g_settings_get_child (settings, "http");
 +		g_autofree gchar *host = g_settings_get_string (http, "host");
@@ -1300,13 +1301,13 @@ index eeabb72d..9ec403d9 100644
 +		g_debug ("set http_proxy %s", proxy_url);
 +	}
 +
-+	tmp = g_getenv ("HTTPS_PROXY");
++	tmp = g_getenv ("https_proxy");
 +	if (tmp == NULL) {
 +		g_autoptr(GSettings) http = g_settings_get_child (settings, "https");
 +		g_autofree gchar *host = g_settings_get_string (http, "host");
 +		int port = g_settings_get_int (http, "port");
 +		g_autofree gchar *proxy_url = g_strdup_printf ("http://%s:%d", host, port);
-+		g_setenv ("HTTPS_PROXY", proxy_url, TRUE);
++		g_setenv ("https_proxy", proxy_url, TRUE);
 +		g_debug ("set https_proxy %s", proxy_url);
 +	}
 +
@@ -2121,5 +2122,5 @@ index 2ea8f755..a6f3ac7a 100644
    'gs-removal-dialog.c',
    'gs-repos-dialog.c',
 -- 
-2.21.0
+2.22.0
 
