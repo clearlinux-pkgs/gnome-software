@@ -1,4 +1,4 @@
-From 663286a77426269e74d3d45f5f120e394b612966 Mon Sep 17 00:00:00 2001
+From 0d21ad857306d97d5fe785289e5e433c12445ab0 Mon Sep 17 00:00:00 2001
 From: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@intel.com>
 Date: Wed, 27 Feb 2019 16:42:33 -0600
 Subject: [PATCH] CLR custimizations
@@ -38,7 +38,7 @@ Signed-off-by: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@inte
  plugins/swupd/gs-plugin-swupd.c           | 445 +++++++++++++++-------
  plugins/swupd/meson.build                 |  15 +-
  src/gnome-software.gresource.xml          |   1 +
- src/gs-application.c                      |  30 ++
+ src/gs-application.c                      |  33 ++
  src/gs-details-page.c                     |  48 ++-
  src/gs-details-page.ui                    |  28 ++
  src/gs-menus.ui                           |   6 +-
@@ -52,7 +52,7 @@ Signed-off-by: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@inte
  src/gs-thirdparty-dialog.h                |  44 +++
  src/gs-thirdparty-dialog.ui               |  84 ++++
  src/meson.build                           |   1 +
- 21 files changed, 1173 insertions(+), 326 deletions(-)
+ 21 files changed, 1176 insertions(+), 326 deletions(-)
  create mode 100644 plugins/swupd/gs-plugin-swupd-3rd_party.c
  create mode 100644 src/gs-thirdparty-dialog.c
  create mode 100644 src/gs-thirdparty-dialog.h
@@ -1270,14 +1270,15 @@ index 5ce90429..abf00049 100644
    <file preprocess="xml-stripblanks">gs-repo-row.ui</file>
    <file preprocess="xml-stripblanks">gs-repos-dialog.ui</file>
 diff --git a/src/gs-application.c b/src/gs-application.c
-index eeabb72d..e0072f5c 100644
+index eeabb72d..d92b1f26 100644
 --- a/src/gs-application.c
 +++ b/src/gs-application.c
-@@ -160,11 +160,13 @@ gs_application_initialize_plugins (GsApplication *app)
+@@ -160,11 +160,14 @@ gs_application_initialize_plugins (GsApplication *app)
  	g_auto(GStrv) plugin_whitelist = NULL;
  	g_autoptr(GError) error = NULL;
  	const gchar *tmp;
 +	g_autoptr(GSettings) settings = NULL;
++	g_autofree gchar *proxy_mode = NULL;
  
  	if (initialized)
  		return;
@@ -1287,12 +1288,14 @@ index eeabb72d..e0072f5c 100644
  
  	/* allow for debugging */
  	tmp = g_getenv ("GNOME_SOFTWARE_PLUGINS_BLACKLIST");
-@@ -174,6 +176,26 @@ gs_application_initialize_plugins (GsApplication *app)
+@@ -174,6 +177,28 @@ gs_application_initialize_plugins (GsApplication *app)
  	if (tmp != NULL)
  		plugin_whitelist = g_strsplit (tmp, ",", -1);
  
++	proxy_mode = g_settings_get_string (settings, "mode");
++	g_debug ("gnome proxy configuration: %s", proxy_mode);
 +	tmp = g_getenv ("http_proxy");
-+	if (tmp == NULL) {
++	if (tmp == NULL && g_strcmp0 (proxy_mode, "manual") == 0) {
 +		g_autoptr(GSettings) http = g_settings_get_child (settings, "http");
 +		g_autofree gchar *host = g_settings_get_string (http, "host");
 +		int port = g_settings_get_int (http, "port");
@@ -1302,7 +1305,7 @@ index eeabb72d..e0072f5c 100644
 +	}
 +
 +	tmp = g_getenv ("https_proxy");
-+	if (tmp == NULL) {
++	if (tmp == NULL && g_strcmp0 (proxy_mode, "manual") == 0) {
 +		g_autoptr(GSettings) http = g_settings_get_child (settings, "https");
 +		g_autofree gchar *host = g_settings_get_string (http, "host");
 +		int port = g_settings_get_int (http, "port");
@@ -1314,7 +1317,7 @@ index eeabb72d..e0072f5c 100644
  	app->plugin_loader = gs_plugin_loader_new ();
  	if (g_file_test (LOCALPLUGINDIR, G_FILE_TEST_EXISTS))
  		gs_plugin_loader_add_location (app->plugin_loader, LOCALPLUGINDIR);
-@@ -315,6 +337,12 @@ prefs_activated (GSimpleAction *action, GVariant *parameter, gpointer app)
+@@ -315,6 +340,12 @@ prefs_activated (GSimpleAction *action, GVariant *parameter, gpointer app)
  	gs_shell_show_prefs (GS_APPLICATION (app)->shell);
  }
  
@@ -1327,7 +1330,7 @@ index eeabb72d..e0072f5c 100644
  static void
  about_activated (GSimpleAction *action,
  		 GVariant      *parameter,
-@@ -328,6 +356,7 @@ about_activated (GSimpleAction *action,
+@@ -328,6 +359,7 @@ about_activated (GSimpleAction *action,
  		"Allan Day",
  		"Ryan Lerch",
  		"William Jon McCann",
@@ -1335,7 +1338,7 @@ index eeabb72d..e0072f5c 100644
  		NULL
  	};
  	const gchar *copyright = "Copyright \xc2\xa9 2016 Richard Hughes, Matthias Clasen, Kalev Lember";
-@@ -802,6 +831,7 @@ static GActionEntry actions[] = {
+@@ -802,6 +834,7 @@ static GActionEntry actions[] = {
  static GActionEntry actions_after_loading[] = {
  	{ "sources", sources_activated, NULL, NULL, NULL },
  	{ "prefs", prefs_activated, NULL, NULL, NULL },
