@@ -4,7 +4,7 @@
 #
 Name     : gnome-software
 Version  : 3.30.6
-Release  : 42
+Release  : 43
 URL      : https://download.gnome.org/sources/gnome-software/3.30/gnome-software-3.30.6.tar.xz
 Source0  : https://download.gnome.org/sources/gnome-software/3.30/gnome-software-3.30.6.tar.xz
 Source1  : http://localhost/cgit/projects/clr-software-icons/snapshot/clr-software-icons-1.tar.gz
@@ -48,6 +48,7 @@ BuildRequires : valgrind-dev
 BuildRequires : zstd-dev
 Patch1: 0001-WIP-Integrating-swupd-to-gnome-software.patch
 Patch2: 0001-CLR-custimizations.patch
+Patch3: 0001-make-the-json-url-for-swupd-configurable.patch
 
 %description
 [![Build Status](https://gitlab.gnome.org/GNOME/gnome-software/badges/master/build.svg)](https://gitlab.gnome.org/GNOME/gnome-software/pipelines)
@@ -145,13 +146,14 @@ mkdir -p clearlinux
 cp -r %{_topdir}/BUILD/clr-software-icons-1/* %{_topdir}/BUILD/gnome-software-3.30.6/clearlinux
 %patch1 -p1
 %patch2 -p1
+%patch3 -p1
 
 %build
 export http_proxy=http://127.0.0.1:9/
 export https_proxy=http://127.0.0.1:9/
 export no_proxy=localhost,127.0.0.1,0.0.0.0
 export LANG=C
-export SOURCE_DATE_EPOCH=1562862735
+export SOURCE_DATE_EPOCH=1564001564
 export GCC_IGNORE_WERROR=1
 export CFLAGS="$CFLAGS -fno-lto "
 export FCFLAGS="$CFLAGS -fno-lto "
