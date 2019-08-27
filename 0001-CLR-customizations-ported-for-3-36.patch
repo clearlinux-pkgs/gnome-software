@@ -1,0 +1,1537 @@
+From b4cd11abeed58b73b319febfd5057a1c1cffb7f1 Mon Sep 17 00:00:00 2001
+From: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@intel.com>
+Date: Mon, 26 Aug 2019 20:27:01 -0500
+Subject: [PATCH] CLR customizations ported for 3-36
+
+Signed-off-by: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@intel.com>
+---
+ lib/gs-app.c                     | 122 ++++++
+ lib/gs-app.h                     |  12 +
+ meson_options.txt                |   1 +
+ plugins/core/gs-desktop-common.c |  27 --
+ plugins/meson.build              |   3 +
+ plugins/swupd/gs-plugin-swupd.c  | 730 +++++++++++++++++++++++++++++++
+ plugins/swupd/meson.build        |  16 +
+ src/gnome-software.ui            |   2 +-
+ src/gs-application.c             |  26 ++
+ src/gs-details-page.c            |  46 +-
+ src/gs-details-page.ui           |  28 ++
+ src/gs-overview-page.c           |  49 +--
+ src/gs-overview-page.ui          |  97 +---
+ src/gs-prefs-dialog.ui           |   2 +-
+ src/gs-star-widget.c             |   3 +
+ 15 files changed, 1002 insertions(+), 162 deletions(-)
+ create mode 100644 plugins/swupd/gs-plugin-swupd.c
+ create mode 100644 plugins/swupd/meson.build
+
+diff --git a/lib/gs-app.c b/lib/gs-app.c
+index f09ddc98..dfa73726 100644
+--- a/lib/gs-app.c
++++ b/lib/gs-app.c
+@@ -66,10 +66,12 @@ typedef struct
+ 	GsAppQuality		 summary_quality;
+ 	gchar			*summary_missing;
+ 	gchar			*description;
++	GPtrArray               *bundle_content;
+ 	GsAppQuality		 description_quality;
+ 	GPtrArray		*screenshots;
+ 	GPtrArray		*categories;
+ 	GPtrArray		*key_colors;
++	GPtrArray		*keywords;
+ 	GHashTable		*urls;
+ 	GHashTable		*launchables;
+ 	gchar			*license;
+@@ -615,6 +617,12 @@ gs_app_to_string_append (GsApp *app, GString *str)
+ 				  color->green * 255.f,
+ 				  color->blue * 255.f);
+ 	}
++	if (priv->keywords != NULL) {
++		for (i = 0; i < priv->keywords->len; i++) {
++			tmp = g_ptr_array_index (priv->keywords, i);
++			gs_app_kv_lpad (str, "keyword", tmp);
++		}
++	}
+ 	keys = g_hash_table_get_keys (priv->metadata);
+ 	for (GList *l = keys; l != NULL; l = l->next) {
+ 		GVariant *val;
+@@ -2171,6 +2179,75 @@ gs_app_set_description (GsApp *app, GsAppQuality quality, const gchar *descripti
+ 	_g_set_str (&priv->description, description);
+ }
+ 
++GPtrArray *
++gs_app_get_bundle_content (GsApp *app)
++{
++	GsAppPrivate *priv = gs_app_get_instance_private (app);
++	g_return_val_if_fail (GS_IS_APP (app), NULL);
++	return priv->bundle_content;
++}
++
++gboolean
++gs_app_has_bundle_content (GsApp *app, const char *package)
++{
++	GsAppPrivate *priv = gs_app_get_instance_private (app);
++	const gchar *tmp;
++	guint i;
++
++	g_return_val_if_fail (GS_IS_APP (app), FALSE);
++
++	for (i = 0; i < priv->bundle_content->len; i++) {
++		tmp = g_ptr_array_index (priv->bundle_content, i);
++		if (g_strcmp0 (tmp, package) == 0)
++			return TRUE;
++	}
++	return FALSE;
++}
++
++void
++gs_app_set_bundle_content (GsApp *app, GPtrArray *content)
++{
++	GsAppPrivate *priv = gs_app_get_instance_private (app);
++	g_autoptr (GMutexLocker) locker = NULL;
++	g_return_if_fail (GS_IS_APP (app));
++	g_return_if_fail (content != NULL);
++	locker = g_mutex_locker_new (&priv->mutex);
++	_g_set_ptr_array (&priv->bundle_content, content);
++}
++
++void
++gs_app_add_bundle_content (GsApp *app, const gchar *package)
++{
++	GsAppPrivate *priv = gs_app_get_instance_private (app);
++	g_autoptr (GMutexLocker) locker = NULL;
++	g_return_if_fail (GS_IS_APP (app));
++	g_return_if_fail (package != NULL);
++	locker = g_mutex_locker_new (&priv->mutex);
++	if (gs_app_has_bundle_content (app, package))
++		return;
++	g_ptr_array_add (priv->bundle_content, package);
++}
++
++gboolean
++gs_app_remove_bundle_content (GsApp *app, const gchar *package)
++{
++	GsAppPrivate *priv = gs_app_get_instance_private (app);
++	const gchar *tmp;
++	guint i;
++	g_autoptr(GMutexLocker) locker = NULL;
++	g_return_val_if_fail (GS_IS_APP (app), FALSE);
++	locker = g_mutex_locker_new (&priv->mutex);
++
++	for (i = 0; i < priv->bundle_content->len; i++) {
++		tmp = g_ptr_array_index (priv->bundle_content, i);
++		if (g_strcmp0 (tmp, package) != 0)
++			continue;
++		g_ptr_array_remove_index_fast (priv->bundle_content, i);
++		return TRUE;
++	}
++	return FALSE;
++}
++
+ /**
+  * gs_app_get_url:
+  * @app: a #GsApp
+@@ -2874,6 +2951,8 @@ gs_app_get_rating (GsApp *app)
+ {
+ 	GsAppPrivate *priv = gs_app_get_instance_private (app);
+ 	g_return_val_if_fail (GS_IS_APP (app), -1);
++	if (gs_app_has_quirk (app, AS_APP_QUIRK_NOT_REVIEWABLE))
++		return G_MAXINT;
+ 	return priv->rating;
+ }
+ 
+@@ -3662,6 +3741,44 @@ gs_app_add_key_color (GsApp *app, GdkRGBA *key_color)
+ 	g_ptr_array_add (priv->key_colors, gdk_rgba_copy (key_color));
+ }
+ 
++/**
++ * gs_app_get_keywords:
++ * @app: a #GsApp
++ *
++ * Gets the list of application keywords in the users locale.
++ *
++ * Returns: (element-type utf8) (transfer none): a list
++ *
++ * Since: 3.22
++ **/
++GPtrArray *
++gs_app_get_keywords (GsApp *app)
++{
++	GsAppPrivate *priv = gs_app_get_instance_private (app);
++	g_return_val_if_fail (GS_IS_APP (app), NULL);
++	return priv->keywords;
++}
++
++/**
++ * gs_app_set_keywords:
++ * @app: a #GsApp
++ * @keywords: (element-type utf8): a set of keywords
++ *
++ * Sets the list of application keywords in the users locale.
++ *
++ * Since: 3.22
++ **/
++void
++gs_app_set_keywords (GsApp *app, GPtrArray *keywords)
++{
++	GsAppPrivate *priv = gs_app_get_instance_private (app);
++	g_autoptr(GMutexLocker) locker = NULL;
++	g_return_if_fail (GS_IS_APP (app));
++	g_return_if_fail (keywords != NULL);
++	locker = g_mutex_locker_new (&priv->mutex);
++	_g_set_ptr_array (&priv->keywords, keywords);
++}
++
+ /**
+  * gs_app_add_kudo:
+  * @app: a #GsApp
+@@ -3769,6 +3886,8 @@ gs_app_get_kudos_percentage (GsApp *app)
+ 		percentage += 20;
+ 	if ((priv->kudos & GS_APP_KUDO_HAS_KEYWORDS) > 0)
+ 		percentage += 5;
++	if ((priv->kudos & GS_APP_KUDO_HAS_KEYWORDS) > 0)
++		percentage += 5;
+ 	if ((priv->kudos & GS_APP_KUDO_HAS_SCREENSHOTS) > 0)
+ 		percentage += 20;
+ 	if ((priv->kudos & GS_APP_KUDO_HIGH_CONTRAST) > 0)
+@@ -4198,6 +4317,8 @@ gs_app_finalize (GObject *object)
+ 	g_ptr_array_unref (priv->categories);
+ 	g_ptr_array_unref (priv->key_colors);
+ 	g_clear_object (&priv->cancellable);
++	if (priv->keywords != NULL)
++		g_ptr_array_unref (priv->keywords);
+ 	if (priv->local_file != NULL)
+ 		g_object_unref (priv->local_file);
+ 	if (priv->content_rating != NULL)
+@@ -4335,6 +4456,7 @@ gs_app_init (GsApp *app)
+ 	priv->sources = g_ptr_array_new_with_free_func (g_free);
+ 	priv->source_ids = g_ptr_array_new_with_free_func (g_free);
+ 	priv->categories = g_ptr_array_new_with_free_func (g_free);
++	priv->bundle_content = g_ptr_array_new_with_free_func (g_free);
+ 	priv->key_colors = g_ptr_array_new_with_free_func ((GDestroyNotify) gdk_rgba_free);
+ 	priv->addons = gs_app_list_new ();
+ 	priv->related = gs_app_list_new ();
+diff --git a/lib/gs-app.h b/lib/gs-app.h
+index cd185154..eb731bcc 100644
+--- a/lib/gs-app.h
++++ b/lib/gs-app.h
+@@ -235,6 +235,15 @@ const gchar	*gs_app_get_description		(GsApp		*app);
+ void		 gs_app_set_description		(GsApp		*app,
+ 						 GsAppQuality	 quality,
+ 						 const gchar	*description);
++GPtrArray       *gs_app_get_bundle_content      (GsApp          *app);
++gboolean         gs_app_has_bundle_content      (GsApp          *app,
++						 const char     *package);
++void             gs_app_set_bundle_content      (GsApp          *app,
++						 GPtrArray      *content);
++void             gs_app_add_bundle_content      (GsApp          *app,
++						 const gchar    *package);
++gboolean         gs_app_remove_bundle_content   (GsApp          *app,
++						 const gchar    *package);
+ const gchar	*gs_app_get_url			(GsApp		*app,
+ 						 AsUrlKind	 kind);
+ void		 gs_app_set_url			(GsApp		*app,
+@@ -350,6 +359,9 @@ void		 gs_app_add_category		(GsApp		*app,
+ 						 const gchar	*category);
+ gboolean	 gs_app_remove_category		(GsApp		*app,
+ 						 const gchar	*category);
++GPtrArray	*gs_app_get_keywords		(GsApp		*app);
++void		 gs_app_set_keywords		(GsApp		*app,
++						 GPtrArray	*keywords);
+ void		 gs_app_add_kudo		(GsApp		*app,
+ 						 GsAppKudo	 kudo);
+ void		 gs_app_remove_kudo		(GsApp		*app,
+diff --git a/meson_options.txt b/meson_options.txt
+index 99f28f6d..e1500b4d 100644
+--- a/meson_options.txt
++++ b/meson_options.txt
+@@ -7,6 +7,7 @@ option('packagekit_autoremove', type : 'boolean', value : false, description : '
+ option('polkit', type : 'boolean', value : true, description : 'enable PolKit support')
+ option('fwupd', type : 'boolean', value : true, description : 'enable fwupd support')
+ option('flatpak', type : 'boolean', value : true, description : 'enable Flatpak support')
++option('swupd', type : 'boolean', value : true, description : 'enable Swupd support')
+ option('rpm_ostree', type : 'boolean', value : false, description : 'enable rpm-ostree support')
+ option('shell_extensions', type : 'boolean', value : true, description : 'enable shell extensions support')
+ option('odrs', type : 'boolean', value : true, description : 'enable ODRS support')
+diff --git a/plugins/core/gs-desktop-common.c b/plugins/core/gs-desktop-common.c
+index f2c09222..6bfaabb1 100644
+--- a/plugins/core/gs-desktop-common.c
++++ b/plugins/core/gs-desktop-common.c
+@@ -295,36 +295,9 @@ static const GsDesktopMap map_reference[] = {
+ /* main categories */
+ /* Please keep category name and subcategory context synchronized!!! */
+ static const GsDesktopData msdata[] = {
+-	/* TRANSLATORS: this is the menu spec main category for Audio & Video */
+-	{ "audio-video",	map_audiovisual,	N_("Audio & Video"),
+-				"folder-music-symbolic", "#215d9c", 100 },
+-	/* TRANSLATORS: this is the menu spec main category for Development */
+-	{ "developer-tools",	map_developertools,	N_("Developer Tools"),
+-				"applications-engineering-symbolic", "#d3d7c7", 40 },
+-	/* TRANSLATORS: this is the menu spec main category for Education & Science */
+-	{ "education-science",		map_education_science,	N_("Education & Science"),
+-				"system-help-symbolic", "#d3d7c7", 30 },
+-	/* TRANSLATORS: this is the menu spec main category for Game */
+-	{ "games",		map_games,		N_("Games"),
+-				"applications-games-symbolic", "#c4a000", 70 },
+-	/* TRANSLATORS: this is the menu spec main category for Graphics */
+-	{ "graphics",		map_graphics,		N_("Graphics & Photography"),
+-				"applications-graphics-symbolic", "#75507b", 60 },
+-	/* TRANSLATORS: this is the menu spec main category for Office */
+-	{ "productivity",	map_productivity,	N_("Productivity"),
+-				"text-editor-symbolic", "#cc0000", 80 },
+ 	/* TRANSLATORS: this is the menu spec main category for Add-ons */
+ 	{ "addons",		map_addons,		N_("Add-ons"),
+ 				"application-x-addon-symbolic", "#4e9a06", 50 },
+-	/* TRANSLATORS: this is the menu spec main category for Communication */
+-	{ "communication",	map_communication,	N_("Communication & News"),
+-				"user-available-symbolic", "#729fcf", 90 },
+-	/* TRANSLATORS: this is the menu spec main category for Reference */
+-	{ "reference",		map_reference,		N_("Reference"),
+-				"view-dual-symbolic", "#d3d7c7", 0 },
+-	/* TRANSLATORS: this is the menu spec main category for Utilities */
+-	{ "utilities",		map_utilities,		N_("Utilities"),
+-				"applications-utilities-symbolic", "#d3d7c7", 10 },
+ 	{ NULL }
+ };
+ 
+diff --git a/plugins/meson.build b/plugins/meson.build
+index f38fc048..2956e39a 100644
+--- a/plugins/meson.build
++++ b/plugins/meson.build
+@@ -14,6 +14,9 @@ subdir('dummy')
+ subdir('epiphany')
+ subdir('fedora-pkgdb-collections')
+ 
++if get_option('swupd')
++  subdir('swupd')
++endif
+ if get_option('flatpak')
+   subdir('flatpak')
+ endif
+diff --git a/plugins/swupd/gs-plugin-swupd.c b/plugins/swupd/gs-plugin-swupd.c
+new file mode 100644
+index 00000000..a63d8432
+--- /dev/null
++++ b/plugins/swupd/gs-plugin-swupd.c
+@@ -0,0 +1,730 @@
++/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*-
++ *
++ * Licensed under the GNU General Public License Version 2
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
++ */
++
++//#include <config.h>
++
++#include <gnome-software.h>
++#include <glib/gstdio.h>
++#include <json-glib/json-glib.h>
++#include <fcntl.h>
++
++#define GS_PLUGIN_SWUPD_CATEGORY "PackageManager"
++
++#define GS_PLUGIN_SWUPD_BUNDLES_URL "https://clearlinux.org/documentation/clear-linux/concepts/bundles-about"
++
++#define GS_PLUGIN_SWUPD_DATA_URL "https://cdn.download.clearlinux.org/releases"
++
++// FileSystem
++#define GS_PLUGIN_SWUPD_VERSION_FILE "/usr/share/clear/version"
++#define GS_PLUGIN_SWUPD_BUNDLES_PATH "/usr/share/clr-bundles"
++#define GS_PLUGIN_SWUPD_BUNDLES_INSTALLED_PATH "/usr/share/clear/bundles"
++#define GS_PLUGIN_SWUPD_BUNDLES_ICON_PATH "/usr/share/clear/bundle-icons"
++#define GS_PLUGIN_SWUPD_BUNDLES_DEFAULT_ICON_PATH GS_PLUGIN_SWUPD_BUNDLES_ICON_PATH"/bundle.svg"
++#define GS_PLUGIN_SWUPD_BUNDLES_SCREENSHOT_PATH "/usr/share/clear/bundle-screenshots"
++#define GS_PLUGIN_SWUPD_SOURCEURL_FILE "/usr/share/clear/sourceurl.ini"
++
++struct GsPluginData {
++	GPtrArray *bundles;
++	gchar *clr_version;
++};
++
++typedef struct {
++	const gchar *name;
++	const gint score;
++	const gchar *rgb_color;
++	const gchar *icon;
++	const char *desktop_groups[16];
++} ClrCategoryData;
++
++static const ClrCategoryData clr_categories[] = {
++			    {"Multimedia and Graphics", 100, "#cfe2f3", "applications-multimedia-symbolic",
++			     {"Multimedia and Graphics", "AudioVideo", "Graphics", NULL}},
++			    {"Developer Tools", 99, "#d9d2e9", "applications-engineering-symbolic",
++			     {"Developer Tools", "Development", NULL}},
++			    {"Data Science", 98, "#000000", "applications-science-symbolic",
++			     {"Data Science", NULL}},
++			    {"Education", 97, "#e6b8af", "accessories-dictionary-symbolic",
++			     {"Education", "Science" ,NULL}},
++			    {"Games", 96, "#fce5cd", "applications-games-symbolic",
++			     {"Games", "Game", NULL}},
++			    {"Productivity", 95, "#d9ead3", "gnome-software-symbolic",
++			     {"Productivity", "Office", NULL}},
++			    {"Programming Languages", 94, "#000000", "utilities-terminal-symbolic",
++			     {"Programming Languages", NULL}},
++			    {"Tools and Utilities", 93, "#6aa84f", "applications-utilities-symbolic",
++			     {"Tools and Utilities", "Utility", "Settings", NULL}},
++			    {"Security", 92, "#000000", "network-vpn-symbolic",
++			     {"Security", NULL}},
++			    {"Other", 0, "#ffe599", "preferences-other-symbolic",
++			     {"Other", "Network", "Reference", NULL}},
++			    { NULL }
++};
++
++static gboolean
++gs_plugin_swupd_is_installed (gchar *bundle_name)
++{
++	gchar *file_path = g_strdup_printf ("/usr/share/clear/bundles/%s", bundle_name);
++	gboolean ret = g_file_test (file_path, G_FILE_TEST_EXISTS);
++	g_free (file_path);
++	return ret;
++}
++
++void
++gs_plugin_swupd_set_screenshots (GsApp *app, const gchar *version)
++{
++	GPtrArray *screenshots = NULL;
++	g_autofree gchar *screenshots_path = g_strdup_printf ("%s/%s",
++							     GS_PLUGIN_SWUPD_BUNDLES_SCREENSHOT_PATH,
++							     gs_app_get_name (app));
++	g_autofree gchar *fname = NULL;
++	g_autoptr(GDir) *screenshots_dir = NULL;
++
++	screenshots = gs_app_get_screenshots (app);
++
++	if (!g_file_test (screenshots_path, G_FILE_TEST_IS_DIR)) {
++		return;
++	}
++
++	screenshots_dir = g_dir_open (screenshots_path, 0, NULL);
++	while ((fname = g_dir_read_name (screenshots_dir)) != NULL) {
++		g_autoptr(AsScreenshot) ss = NULL;
++		g_autoptr(AsImage) im = NULL;
++		char *img_full_path = g_strdup_printf ("file://%s/%s/%s",
++								  GS_PLUGIN_SWUPD_BUNDLES_SCREENSHOT_PATH,
++								  gs_app_get_name (app),
++								  fname);
++		im = as_image_new();
++		as_image_set_kind (im, AS_IMAGE_KIND_SOURCE);
++		as_image_set_url (im, img_full_path);
++		ss = as_screenshot_new ();
++		if (screenshots->len <= 0)
++			as_screenshot_set_kind (ss, AS_SCREENSHOT_KIND_DEFAULT);
++		else
++			as_screenshot_set_kind (ss, AS_SCREENSHOT_KIND_NORMAL);
++		as_screenshot_add_image (ss, im);
++		gs_app_add_screenshot (app, ss);
++	}
++}
++
++GsApp *
++gs_plugin_swupd_set_app (GsPlugin *plugin,
++			 const gchar *bundle_name,
++			 const gchar *desc)
++{
++	GsPluginData *priv = gs_plugin_get_data (plugin);
++	gchar *icon_path = NULL;
++	g_autofree gchar *bundleid = NULL;
++	GsApp *app = NULL;
++
++	bundleid = g_strconcat ("org.clearlinux.", bundle_name, NULL);
++	app = gs_plugin_cache_lookup (plugin, bundleid);
++	if (app == NULL) {
++		app = gs_app_new (bundleid);
++		icon_path = g_strdup_printf ("%s/%s.svg",
++					     GS_PLUGIN_SWUPD_BUNDLES_ICON_PATH,
++					     bundle_name);
++		if (!g_file_test (icon_path, G_FILE_TEST_EXISTS)) {
++			g_free (icon_path);
++			icon_path = g_strdup_printf ("%/%.png",
++						     GS_PLUGIN_SWUPD_BUNDLES_ICON_PATH,
++						     bundle_name);
++		}
++		if (!g_file_test (icon_path, G_FILE_TEST_EXISTS)) {
++			g_free (icon_path);
++			icon_path = GS_PLUGIN_SWUPD_BUNDLES_DEFAULT_ICON_PATH;
++		}
++		gs_app_set_pixbuf (app, gdk_pixbuf_new_from_file (icon_path, NULL));
++		gs_app_set_name (app, GS_APP_QUALITY_NORMAL, bundle_name);
++		gs_app_set_url (app, AS_URL_KIND_HOMEPAGE, GS_PLUGIN_SWUPD_BUNDLES_URL);
++		gs_app_set_kind (app, AS_APP_KIND_DESKTOP);
++		gs_app_add_quirk (app, AS_APP_QUIRK_NOT_LAUNCHABLE);
++		gs_app_add_quirk (app, AS_APP_QUIRK_NOT_REVIEWABLE);
++		gs_app_add_quirk (app, AS_APP_QUIRK_PROVENANCE);
++		gs_app_set_version (app, priv->clr_version);
++
++		// check for app state
++		if (gs_plugin_swupd_is_installed (bundle_name))
++			gs_app_set_state (app, AS_APP_STATE_INSTALLED);
++		else
++			gs_app_set_state (app, AS_APP_STATE_AVAILABLE);
++		// change category
++		gs_app_add_category (app, GS_PLUGIN_SWUPD_CATEGORY);
++		gs_app_set_summary (app, GS_APP_QUALITY_NORMAL, desc);
++		gs_app_set_description (app, GS_APP_QUALITY_NORMAL, desc);
++		gs_plugin_swupd_set_screenshots (app, priv->clr_version);
++		gs_app_set_management_plugin (app, gs_plugin_get_name (plugin));
++		gs_plugin_cache_add (plugin, bundleid, app);
++	}
++	return app;
++}
++
++gboolean
++gs_plugin_swupd_equal (gconstpointer a, gconstpointer b)
++{
++	return g_strcmp0 (gs_app_get_name ((GsApp*)a), (gchar *)b) == 0;
++}
++
++gchar *
++gs_plugin_swupd_get_clrversion (void)
++{
++	gchar *version = NULL;
++	GError *error = NULL;
++	if (!g_file_get_contents (GS_PLUGIN_SWUPD_VERSION_FILE, &version, NULL, &error)) {
++		g_error ("error reading from %s", GS_PLUGIN_SWUPD_VERSION_FILE);
++	}
++	return version;
++}
++
++void
++gs_plugin_swupd_set_bundle_content (GsApp *app, JsonObject *content)
++{
++	JsonArray *packages;
++	JsonArray *includes;
++	gint i;
++
++	includes = json_object_get_array_member (content, "includes");
++	for (i = 0; i < json_array_get_length (includes); i++) {
++		JsonNode *node;
++		gchar *include = NULL;
++		node = json_array_get_element (includes, i);
++		include = g_strdup_printf ("bundle:%s", json_node_get_string (node));
++		gs_app_add_bundle_content (app, include);
++	}
++
++	packages = json_object_get_array_member (content, "packages");
++	for (i = 0; i < json_array_get_length (packages); i++) {
++		JsonNode *node;
++		node = json_array_get_element (packages, i);
++		gs_app_add_bundle_content (app, json_node_dup_string (node));
++	}
++}
++
++gboolean
++gs_plugin_swupd_is_category (gchar *tag)
++{
++	gint i, j;
++	for (i = 0; clr_categories[i].name != NULL; i++)
++		for (j = 0; clr_categories[i].desktop_groups[j] != NULL; j++) {
++			if (g_strcmp0 (tag, clr_categories[i].desktop_groups[j]) == 0)
++				return TRUE;
++		}
++	return FALSE;
++}
++
++void
++gs_plugin_swupd_set_bundle_tags (GsApp *app, JsonArray *tags)
++{
++	gint i;
++	GPtrArray *keywords = g_ptr_array_new_with_free_func ((GDestroyNotify) g_free);
++	for (i = 0; i < json_array_get_length (tags); i++) {
++		JsonNode *node;
++		gchar *tag = NULL;
++		node = json_array_get_element (tags, i);
++		tag = json_node_dup_string (node);
++		g_ptr_array_add (keywords, tag);
++
++		if (gs_plugin_swupd_is_category (tag))
++			gs_app_add_category (app, tag);
++	}
++	gs_app_set_keywords (app, keywords);
++}
++
++void
++gs_plugin_swupd_get_apps (GsPlugin *plugin, GPtrArray *bundles)
++{
++	GsPluginData *priv = gs_plugin_get_data (plugin);
++	g_autofree gchar *uri = NULL;
++	g_autoptr (GError) err = NULL;
++	g_autoptr (GBytes) data = NULL;
++	g_autoptr (GsApp) app_dl = gs_app_new (gs_plugin_get_name (plugin));
++
++	JsonArray *json_bundles_array;
++	JsonNode *json_bundles;
++	JsonNode *json_root;
++	JsonObject *json_item;
++	gint i;
++	g_autoptr (JsonParser) json_parser = NULL;
++
++	if (g_file_test (GS_PLUGIN_SWUPD_SOURCEURL_FILE, G_FILE_TEST_EXISTS | G_FILE_TEST_IS_REGULAR)) {
++		g_autoptr(GError) error = NULL;
++		g_autoptr(GKeyFile) key_file = g_key_file_new ();
++		g_autofree gchar *base_url = NULL;
++		g_autofree gchar *json_path = NULL;
++
++		if (!g_key_file_load_from_file (key_file, GS_PLUGIN_SWUPD_SOURCEURL_FILE, G_KEY_FILE_NONE, &error)) {
++			g_debug ("error: %s sourceurl file not found: %s", error->message);
++			return;
++		}
++
++		base_url = g_key_file_get_string (key_file, "Default", "BASE_URL", &error);
++		if (base_url == NULL) {
++			g_debug ("error finding BASE_URL in the key file: %s", error->message);
++			return;
++		}
++
++		json_path = g_key_file_get_string (key_file, "Default", "JSON_PATH", &error);
++		if (json_path == NULL) {
++			g_debug ("error finding JSON_PATH in the key file: %sn", error->message);
++			return;
++		}
++
++		uri = g_strdup_printf ("%s/%s/%s",
++				       base_url,
++				       priv->clr_version,
++				       json_path);
++	} else {
++		uri = g_strdup_printf ("%s/%s/assets/bundles/bundles.json",
++				       GS_PLUGIN_SWUPD_DATA_URL,
++				       priv->clr_version);
++	}
++
++	if (!g_str_has_prefix (uri, "http")) {
++		g_debug ("error wrong url format: %s", uri);
++		return;
++	}
++
++	gs_app_set_summary_missing (app_dl, "Downloading bundles metadata");
++	data = gs_plugin_download_data (plugin, app_dl, uri, NULL, &err);
++	if (data == NULL) {
++		g_debug ("error: %s with the url: %s", err->message, uri);
++		return;
++	}
++
++	json_parser = json_parser_new ();
++	if (!json_parser_load_from_data (json_parser, g_bytes_get_data(data, NULL), g_bytes_get_size(data), &err)) {
++		g_debug ("error: the json content for bundles cannot be parsed");
++		return;
++	}
++
++	json_root = json_parser_get_root (json_parser);
++	if (json_root == NULL) {
++		g_debug ("error: get root node is not posible");
++	}
++	if (json_node_get_node_type (json_root) != JSON_NODE_OBJECT) {
++		g_debug ("the root json element is not an object");
++		return;
++	}
++
++	json_item = json_node_get_object (json_root);
++	if (json_item == NULL) {
++		g_debug ("root json object is not usable");
++		return;
++	}
++
++	json_bundles = json_object_get_member (json_item, "bundles");
++	if (json_bundles == NULL) {
++		g_debug ("root object dont have a bundles member");
++		return;
++	}
++
++	json_bundles_array = json_node_get_array (json_bundles);
++	if (json_bundles_array == NULL) {
++		g_debug ("the json element bundles is not an array");
++		return;
++	}
++
++	for (i = 0; i < json_array_get_length (json_bundles_array); i++) {
++		JsonNode *node;
++		JsonObject *obj;
++		JsonObject *def;
++		JsonArray *tags;
++		gchar *title;
++		gchar *desc;
++		GsApp *app = NULL;
++
++		node = json_array_get_element (json_bundles_array, i);
++		obj = json_node_get_object (node);
++		title = json_object_get_string_member (obj, "title");
++		desc = json_object_get_string_member (obj, "description");
++		if (title == NULL || desc == NULL)
++			continue;
++		app = gs_plugin_swupd_set_app (plugin, title, desc);
++		def = json_object_get_object_member (obj, "definition");
++		if (def != NULL)
++			gs_plugin_swupd_set_bundle_content (app, def);
++		tags = json_object_get_array_member (obj, "tags");
++		if (tags != NULL)
++			gs_plugin_swupd_set_bundle_tags (app, tags);
++		gs_app_set_metadata (app, "ClearLinux::bundle-type", "bundle");
++		g_ptr_array_add (bundles, app);
++	}
++}
++
++void
++gs_plugin_initialize (GsPlugin *plugin)
++{
++	GsPluginData *priv = gs_plugin_alloc_data (plugin, sizeof (GsPluginData));
++
++	// need categories
++	gs_plugin_add_rule (plugin, GS_PLUGIN_RULE_RUN_AFTER, "desktop-categories");
++	priv->clr_version = gs_plugin_swupd_get_clrversion ();
++
++	priv->bundles = g_ptr_array_new_with_free_func ((GDestroyNotify) g_object_unref);
++	gs_plugin_swupd_get_apps (plugin, priv->bundles);
++}
++
++void
++gs_plugin_destroy (GsPlugin *plugin)
++{
++	GsPluginData *priv = gs_plugin_get_data (plugin);
++	g_ptr_array_unref (priv->bundles);
++	g_free (priv->clr_version);
++}
++
++gboolean
++gs_plugin_add_categories (GsPlugin *plugin,
++			  GPtrArray *list,
++			  GCancellable *cancellable,
++			  GError **error)
++{
++	gint i, j;
++
++	for (i = 0; clr_categories[i].name != NULL; i++) {
++		GsCategory *cat = gs_category_new (clr_categories[i].name);
++		GdkRGBA key_color;
++		g_autoptr(GsCategory) sub1 = gs_category_new ("all");
++
++		gs_category_set_name (cat, clr_categories[i].name);
++		gs_category_set_score (cat, clr_categories[i].score);
++		if (gdk_rgba_parse (&key_color, clr_categories[i].rgb_color))
++			gs_category_add_key_color (cat, &key_color);
++		gs_category_set_icon (cat, clr_categories[i].icon);
++		gs_category_increment_size (cat);
++		g_ptr_array_add (list, cat);
++
++		for (j = 0; clr_categories[i].desktop_groups[j] != NULL; j++) {
++			gs_category_add_desktop_group (sub1, clr_categories[i].desktop_groups[j]);
++		}
++		gs_category_set_name (sub1, "All");
++		gs_category_add_child (cat, sub1);
++	}
++
++	return TRUE;
++}
++
++static gboolean
++find_category (gconstpointer a, gconstpointer b)
++{
++	return g_strcmp0 (a,b) == 0;
++}
++
++gboolean
++gs_plugin_add_category_apps (GsPlugin *plugin,
++			     GsCategory *category,
++			     GsAppList *list,
++			     GCancellable *cancellable,
++			     GError **error)
++{
++	GsPluginData *priv = gs_plugin_get_data (plugin);
++	guint i = 0;
++
++	for (i = 0; i < priv->bundles->len; i++) {
++		GsApp *tmp = g_ptr_array_index (priv->bundles, i);
++		GPtrArray *app_cat = gs_app_get_categories(tmp);
++		GsCategory *c = gs_category_get_parent (category);
++
++		if (g_ptr_array_find_with_equal_func (app_cat, gs_category_get_name (c), find_category, NULL)) {
++				gs_app_list_add (list, tmp);
++		}
++		if (gs_plugin_swupd_is_installed (gs_app_get_name(tmp)))
++			gs_app_set_state (tmp, AS_APP_STATE_INSTALLED);
++		else
++			gs_app_set_state (tmp, AS_APP_STATE_AVAILABLE);
++	}
++	return TRUE;
++}
++
++
++static gboolean
++swup_install_watcher (GIOChannel   *channel,
++             GIOCondition  cond,
++             gpointer user_data )
++{
++	gchar *str = NULL;
++	gsize size;
++	guint progress = 0;
++	GsApp *app = (GsApp *)user_data;
++
++	if(cond == G_IO_HUP) {
++		g_io_channel_unref( channel );
++		return FALSE;
++	}
++
++	progress = gs_app_get_progress (app);
++
++	g_io_channel_read_line( channel, &str, &size, NULL, NULL );
++	if (strstr (str, "Downloading packs") != NULL)
++		progress = 20;
++	if (strstr (str, "Starting download of remaining update content") != NULL)
++		progress = 40;
++	if (strstr (str, "Finishing download of update content") != NULL)
++		progress = 60;
++	if (strstr (str, "Installing bundle(s) files") != NULL)
++		progress = 80;
++	if (strstr (str, "Successfully installed") != NULL)
++		progress = 100;
++
++	g_debug("output : \n:%s\n", str);
++	if (strstr (str, "Error") != NULL)
++		gs_app_set_metadata (app, "swupd::error_output", str);
++	gs_app_set_progress (app, progress);
++
++	g_free( str );
++	return TRUE;
++}
++
++static void
++gs_plugin_swupd_cancel_cb (GCancellable *cancellable, gpointer user_data)
++{
++	g_autofree gchar *cmd = NULL;
++	g_debug ("canceling process");
++	/* TODO: remove sudo and use the pid in user_data to kill swupd */
++	cmd = g_strdup_printf ("sudo pkill -9 swupd");
++	g_spawn_command_line_async (cmd, NULL);
++}
++
++gboolean
++gs_plugin_app_install (GsPlugin *plugin,
++                       GsApp *app,
++                       GCancellable *cancellable,
++                       GError **error)
++{
++	/* only process this app if was created by this plugin */
++	if (g_strcmp0 (gs_app_get_management_plugin (app),
++		       gs_plugin_get_name (plugin)) != 0)
++		return TRUE;
++
++	g_debug ("Installing bundle %s", gs_app_get_name (app));
++
++	/* IMPROVEMENT: change pkexec for something in C*/
++	gchar *argv[] = {"/usr/bin/pkexec", "/usr/bin/swupd", "bundle-add", gs_app_get_name (app), NULL};
++	gint child_stdout, child_stderr;
++	GIOChannel *out_ch, *err_ch;
++	GPid child_pid;
++	int status;
++
++	gs_app_set_state (app, AS_APP_STATE_INSTALLING);
++	g_spawn_async_with_pipes (NULL, argv, NULL, G_SPAWN_DO_NOT_REAP_CHILD, NULL,
++				  NULL, &child_pid, NULL, &child_stdout,
++				  &child_stdout, &error);
++	if (error != NULL && *error != NULL) {
++		g_error ("Spawning child failed: %s", (*error)->message);
++		return FALSE;
++	}
++
++	out_ch = g_io_channel_unix_new( child_stdout );
++	g_io_add_watch (out_ch, G_IO_IN | G_IO_HUP, (GIOFunc)swup_install_watcher, (gpointer)app);
++
++	g_signal_connect (cancellable, "cancelled", G_CALLBACK (gs_plugin_swupd_cancel_cb), (gpointer)&child_pid);
++
++	wait(&status);
++	if (!status)
++		gs_app_set_state (app, AS_APP_STATE_INSTALLED);
++	else {
++		g_set_error (error,
++			     GS_PLUGIN_ERROR,
++			     GS_PLUGIN_ERROR_FAILED,
++			     gs_app_get_metadata_item (app, "swupd::error_output"));
++	}
++
++	return gs_app_get_state (app) == AS_APP_STATE_INSTALLED;
++}
++
++gboolean
++gs_plugin_app_remove (GsPlugin *plugin,
++                      GsApp *app,
++                      GCancellable *cancellable,
++                      GError **error)
++{
++	/* only process this app if was created by this plugin */
++	if (g_strcmp0 (gs_app_get_management_plugin (app),
++		       gs_plugin_get_name (plugin)) != 0)
++		return TRUE;
++
++	g_debug ("Removing bundle %s", gs_app_get_name (app));
++
++	/* IMPROVEMENT: change pkexec for something in C */
++	gchar *argv[] = {"/usr/bin/pkexec", "/usr/bin/swupd", "bundle-remove", gs_app_get_name (app), NULL};
++	gchar *child_stdout=NULL;
++	gchar *child_stderr=NULL;
++	gint exit_status;
++	GPid child_pid;
++
++	gs_app_set_state (app, AS_APP_STATE_REMOVING);
++	g_spawn_sync (NULL, argv, NULL, G_SPAWN_DEFAULT, NULL,
++		      NULL, &child_stdout,
++		      &child_stderr, &exit_status, error);
++	g_debug ("swupd output %s", child_stdout);
++	g_debug ("swupd stderr %s", child_stderr);
++	if (error != NULL && *error != NULL) {
++		g_error ("Spawning child failed: %s", (*error)->message);
++		return FALSE;
++	}
++
++	g_debug ("swupd bundle remove status %d", exit_status);
++	if (!exit_status)
++		gs_app_set_state (app, AS_APP_STATE_AVAILABLE);
++	else {
++		gs_app_set_state (app, AS_APP_STATE_INSTALLED);
++		g_set_error (error, GS_PLUGIN_ERROR, GS_PLUGIN_ERROR_FAILED, g_strdelimit(child_stderr, "\n", '\t'));
++	}
++	return gs_app_get_state (app) == AS_APP_STATE_AVAILABLE;
++}
++
++gboolean
++gs_plugin_swupd_bundles_exists (GsApp *app)
++{
++	gchar *type = gs_app_get_metadata_item (app, "ClearLinux::bundle-type");
++	gchar *bname = gs_app_get_name (app);
++	g_autofree gchar *tmp = NULL;
++
++	if (g_strcmp0 (type, "bundle") == 0) {
++		g_autofree gchar *file_content = NULL;
++		g_autofree gchar *path = g_strdup_printf ("%s/packages",
++							  GS_PLUGIN_SWUPD_BUNDLES_PATH);
++		tmp = g_strdup_printf ("%s #", bname);
++		if (!g_file_get_contents (path, &file_content, NULL, NULL))
++			g_error ("Error reading file %s", path);
++		return g_strrstr (file_content, tmp) != NULL;
++	} else {
++		tmp = g_strdup_printf ("%s/%s",
++				       GS_PLUGIN_SWUPD_BUNDLES_PATH,
++				       bname);
++		return g_file_test (tmp, G_FILE_TEST_EXISTS);
++	}
++}
++
++gboolean
++gs_plugin_refresh (GsPlugin *plugin,
++		   guint cache_age,
++		   GCancellable *cancellable,
++		   GError **error)
++{
++	GsPluginData *priv = gs_plugin_get_data (plugin);
++	g_autofree gchar *system_version = gs_plugin_swupd_get_clrversion ();
++	guint i;
++
++	// is there nothing to update?
++	if (g_strcmp0 (priv->clr_version, system_version) == 0)
++		return TRUE;
++
++	// removing deleted bundles
++	for (i = 0; i < priv->bundles->len; i++) {
++		GsApp *app = g_ptr_array_index (priv->bundles, i);
++		if (gs_plugin_swupd_bundles_exists (app))
++			continue;
++			g_ptr_array_remove (priv->bundles, app);
++			gs_plugin_cache_remove (plugin, gs_app_get_id (app));
++	}
++
++	// adding new bundles
++	gs_plugin_swupd_get_apps (plugin, priv->bundles);
++
++	return TRUE;
++}
++
++static gboolean
++app_has_key (gpointer a, gpointer b)
++{
++	return g_strrstr (g_ascii_strdown((gchar*)a, -1), g_ascii_strdown((gchar*)b, -1)) != NULL;
++}
++
++gboolean
++gs_plugin_add_search (GsPlugin *plugin,
++                      gchar **values,
++                      GsAppList *list,
++                      GCancellable *cancellable,
++                      GError **error)
++{
++	GsPluginData *priv = gs_plugin_get_data (plugin);
++	gint i,j;
++
++	for (i = 0; values[i] != NULL; i++) {
++		for (j = 0; j < priv->bundles->len; j++) {
++			GsApp *tmp = g_ptr_array_index (priv->bundles, j);
++			if (!g_str_has_prefix (gs_app_get_name (tmp), values[i]) &&
++			    !g_ptr_array_find_with_equal_func(gs_app_get_keywords (tmp), (gpointer)values[i], app_has_key, NULL))
++				continue;
++			if (gs_plugin_swupd_is_installed (gs_app_get_name (tmp)))
++				gs_app_set_state (tmp, AS_APP_STATE_INSTALLED);
++			else
++				gs_app_set_state (tmp, AS_APP_STATE_AVAILABLE);
++			gs_app_list_add (list, tmp);
++		}
++	}
++	return TRUE;
++}
++
++gboolean
++gs_plugin_add_installed (GsPlugin *plugin,
++			 GsAppList *list,
++			 GCancellable *cancellable,
++			 GError **error)
++{
++	GsPluginData *priv = gs_plugin_get_data (plugin);
++	guint i;
++
++	for (i = 0; i < priv->bundles->len; i++) {
++		GsApp *app = g_ptr_array_index (priv->bundles, i);
++		if (gs_plugin_swupd_is_installed (gs_app_get_name(app))) {
++			g_debug ("installed app %s", gs_app_get_name (app));
++			gs_app_set_state (app, AS_APP_STATE_INSTALLED);
++			gs_app_list_add (list, g_steal_pointer(&app));
++		}
++	}
++	return TRUE;
++}
++
++static gint
++compare_bundles (gconstpointer a,
++		 gconstpointer b)
++{
++	g_autofree gchar *full_path_a = NULL;
++	g_autofree gchar *full_path_b = NULL;
++	struct statx buf_a, buf_b;
++
++	full_path_a = g_strdup_printf ("/usr/share/clr-bundles/%s", gs_app_get_name (*(GsApp**)a));
++	statx (AT_FDCWD, full_path_a, 0, STATX_BTIME, &buf_a);
++	full_path_b = g_strdup_printf ("/usr/share/clr-bundles/%s", gs_app_get_name (*(GsApp**)b));
++	statx (AT_FDCWD, full_path_b, 0, STATX_BTIME, &buf_b);
++
++	return buf_a.stx_btime.tv_sec - buf_b.stx_btime.tv_sec;
++}
++
++gboolean
++gs_plugin_add_recent (GsPlugin       *plugin,
++		      GsAppList      *list,
++		      guint64         age,
++		      GCancellable   *cancellable,
++		      GError         **error)
++{
++	GsPluginData *priv = gs_plugin_get_data (plugin);
++	gint i;
++
++	g_ptr_array_sort (priv->bundles, compare_bundles);
++	for (i = priv->bundles->len - 1; (i > priv->bundles->len - 11) && i > 0; i--) {
++		GsApp *app = g_ptr_array_index (priv->bundles, i);
++		gs_app_list_add (list, g_steal_pointer (&app));
++		if (gs_plugin_swupd_is_installed (gs_app_get_name (app)))
++			gs_app_set_state (app, AS_APP_STATE_INSTALLED);
++		else
++			gs_app_set_state (app, AS_APP_STATE_AVAILABLE);
++	}
++	return TRUE;
++}
+diff --git a/plugins/swupd/meson.build b/plugins/swupd/meson.build
+new file mode 100644
+index 00000000..998ad90d
+--- /dev/null
++++ b/plugins/swupd/meson.build
+@@ -0,0 +1,16 @@
++cargs = ['-DG_LOG_DOMAIN="GsPluginSwupd"']
++cargs += ['-DLOCALPLUGINDIR="' + meson.current_build_dir() + '"']
++cargs += ['-DLOCALPLUGINDIR_CORE="' + meson.current_build_dir() + '/../core"']
++
++shared_module(
++  'gs_plugin_swupd',
++  sources : 'gs-plugin-swupd.c',
++  include_directories : [
++    include_directories('../..'),
++    include_directories('../../lib'),
++  ],
++  install : true,
++  install_dir: plugin_dir,
++  c_args : cargs,
++  dependencies : [appstream_glib, gio_unix, gtk, goa, libsoup, plugin_libs]
++)
+\ No newline at end of file
+diff --git a/src/gnome-software.ui b/src/gnome-software.ui
+index a4b35cc0..058766ce 100644
+--- a/src/gnome-software.ui
++++ b/src/gnome-software.ui
+@@ -40,7 +40,7 @@
+         <attribute name="hidden-when">action-disabled</attribute>
+       </item>
+       <item>
+-        <attribute name="label" translatable="yes">_Update Preferences</attribute>
++        <attribute name="label" translatable="yes">Update Preferences (GNOME ext. and Flatpak)</attribute>
+         <attribute name="action">app.prefs</attribute>
+       </item>
+     </section>
+diff --git a/src/gs-application.c b/src/gs-application.c
+index c1d359ae..9b83b9ec 100644
+--- a/src/gs-application.c
++++ b/src/gs-application.c
+@@ -146,11 +146,14 @@ gs_application_initialize_plugins (GsApplication *app)
+ 	g_auto(GStrv) plugin_whitelist = NULL;
+ 	g_autoptr(GError) error = NULL;
+ 	const gchar *tmp;
++	g_autoptr(GSettings) settings = NULL;
++	g_autofree gchar *proxy_mode = NULL;
+ 
+ 	if (initialized)
+ 		return;
+ 
+ 	initialized = TRUE;
++	settings = g_settings_new ("org.gnome.system.proxy");
+ 
+ 	/* allow for debugging */
+ 	tmp = g_getenv ("GNOME_SOFTWARE_PLUGINS_BLACKLIST");
+@@ -160,6 +163,28 @@ gs_application_initialize_plugins (GsApplication *app)
+ 	if (tmp != NULL)
+ 		plugin_whitelist = g_strsplit (tmp, ",", -1);
+ 
++	proxy_mode = g_settings_get_string (settings, "mode");
++	g_debug ("gnome proxy configuration: %s", proxy_mode);
++	tmp = g_getenv ("http_proxy");
++	if (tmp == NULL && g_strcmp0 (proxy_mode, "manual") == 0) {
++		g_autoptr(GSettings) http = g_settings_get_child (settings, "http");
++		g_autofree gchar *host = g_settings_get_string (http, "host");
++		int port = g_settings_get_int (http, "port");
++		g_autofree gchar *proxy_url = g_strdup_printf ("http://%s:%d", host, port);
++		g_setenv ("http_proxy", proxy_url, TRUE);
++		g_debug ("set http_proxy %s", proxy_url);
++	}
++
++	tmp = g_getenv ("https_proxy");
++	if (tmp == NULL && g_strcmp0 (proxy_mode, "manual") == 0) {
++		g_autoptr(GSettings) http = g_settings_get_child (settings, "https");
++		g_autofree gchar *host = g_settings_get_string (http, "host");
++		int port = g_settings_get_int (http, "port");
++		g_autofree gchar *proxy_url = g_strdup_printf ("http://%s:%d", host, port);
++		g_setenv ("https_proxy", proxy_url, TRUE);
++		g_debug ("set https_proxy %s", proxy_url);
++	}
++
+ 	app->plugin_loader = gs_plugin_loader_new ();
+ 	if (g_file_test (LOCALPLUGINDIR, G_FILE_TEST_EXISTS))
+ 		gs_plugin_loader_add_location (app->plugin_loader, LOCALPLUGINDIR);
+@@ -314,6 +339,7 @@ about_activated (GSimpleAction *action,
+ 		"Allan Day",
+ 		"Ryan Lerch",
+ 		"William Jon McCann",
++		"Josue David Hernandez",
+ 		NULL
+ 	};
+ 	const gchar *copyright = "Copyright \xc2\xa9 2016-2019 Richard Hughes, Matthias Clasen, Kalev Lember";
+diff --git a/src/gs-details-page.c b/src/gs-details-page.c
+index 3df2806b..0dfdd7e8 100644
+--- a/src/gs-details-page.c
++++ b/src/gs-details-page.c
+@@ -61,6 +61,7 @@ struct _GsDetailsPage
+ 	GtkWidget		*box_addons;
+ 	GtkWidget		*box_details;
+ 	GtkWidget		*box_details_description;
++	GtkWidget               *box_details_bundle_content;
+ 	GtkWidget		*box_details_support;
+ 	GtkWidget		*box_progress;
+ 	GtkWidget		*box_progress2;
+@@ -552,6 +553,7 @@ gs_details_page_refresh_screenshots (GsDetailsPage *self)
+ 				screenshots->len > 0);
+ 	if (screenshots->len == 0) {
+ 		gs_container_remove_all (GTK_CONTAINER (self->box_details_screenshot_thumbnails));
++		gtk_widget_set_visible (self->box_details_screenshot_fallback, FALSE);
+ 		gtk_widget_hide (self->box_details_screenshot_scrolledwindow);
+ 		return;
+ 	}
+@@ -723,6 +725,11 @@ gs_details_page_refresh_size (GsDetailsPage *self)
+ 	    gs_app_get_size_download (self->app) != GS_APP_SIZE_UNKNOWABLE) {
+ 		g_autofree gchar *size = NULL;
+ 		size = g_format_size (gs_app_get_size_download (self->app));
++		if (size) {
++			gtk_widget_hide (self->label_details_size_download_title);
++			gtk_widget_hide (self->label_details_size_download_value);
++			return;
++		}
+ 		gtk_label_set_label (GTK_LABEL (self->label_details_size_download_value), size);
+ 		gtk_widget_show (self->label_details_size_download_title);
+ 		gtk_widget_show (self->label_details_size_download_value);
+@@ -1049,7 +1056,9 @@ gs_details_page_refresh_all (GsDetailsPage *self)
+ 	guint64 updated;
+ 	guint64 user_integration_bf;
+ 	gboolean show_support_box = FALSE;
++	GPtrArray *bundle_content = NULL;
+ 	g_autofree gchar *origin = NULL;
++	guint i;
+ 
+ 	/* change widgets */
+ 	tmp = gs_app_get_name (self->app);
+@@ -1077,6 +1086,30 @@ gs_details_page_refresh_all (GsDetailsPage *self)
+ 	tmp = gs_app_get_description (self->app);
+ 	gs_details_page_set_description (self, tmp);
+ 
++	/* CLR customizations for the details view  */
++	bundle_content = gs_app_get_bundle_content (self->app);
++	gs_container_remove_all	(GTK_CONTAINER (self->box_details_bundle_content));
++
++	for (i = 0; i < bundle_content->len; i++) {
++		gchar *pname = g_ptr_array_index (bundle_content, i);
++		GtkWidget *lab = gtk_label_new (pname);
++		GtkStyleContext *context = NULL;
++		gtk_label_set_line_wrap (GTK_LABEL (lab), TRUE);
++		gtk_label_set_max_width_chars (GTK_LABEL (lab), 40);
++		gtk_label_set_selectable (GTK_LABEL (lab), TRUE);
++		gtk_widget_set_visible (lab, TRUE);
++		gtk_widget_set_can_focus (lab, FALSE);
++		g_object_set (lab,
++			      "xalign", 0.0,
++			      NULL);
++
++		context = gtk_widget_get_style_context (lab);
++		gtk_style_context_add_class (context, "details_license_unknown");
++
++		gtk_box_pack_start (self->box_details_bundle_content, lab, FALSE, FALSE, 0);
++	}
++	gtk_widget_set_visible (self->box_details_bundle_content, TRUE);
++
+ 	/* set the icon */
+ 	pixbuf = gs_app_get_pixbuf (self->app);
+ 	if (pixbuf != NULL) {
+@@ -1122,7 +1155,8 @@ gs_details_page_refresh_all (GsDetailsPage *self)
+ 	if (tmp == NULL) {
+ 		gtk_widget_set_visible (self->button_details_license_free, FALSE);
+ 		gtk_widget_set_visible (self->button_details_license_nonfree, FALSE);
+-		gtk_widget_set_visible (self->button_details_license_unknown, TRUE);
++		gtk_widget_set_visible (self->button_details_license_unknown, FALSE);
++		gtk_widget_set_visible (GTK_LABEL (self->label_details_license_title), FALSE);
+ 	} else if (gs_app_get_license_is_free (self->app)) {
+ 		gtk_widget_set_visible (self->button_details_license_free, TRUE);
+ 		gtk_widget_set_visible (self->button_details_license_nonfree, FALSE);
+@@ -1140,6 +1174,8 @@ gs_details_page_refresh_all (GsDetailsPage *self)
+ 	} else {
+ 		/* TRANSLATORS: this is where the version is not known */
+ 		gtk_label_set_label (GTK_LABEL (self->label_details_version_value), C_("version", "Unknown"));
++		gtk_widget_set_visible (GTK_LABEL (self->label_details_version_title), FALSE);
++		gtk_widget_set_visible (GTK_LABEL (self->label_details_version_value), FALSE);
+ 	}
+ 
+ 	/* refresh size information */
+@@ -1206,6 +1242,9 @@ gs_details_page_refresh_all (GsDetailsPage *self)
+ 		/* TRANSLATORS: this is where we don't know the origin of the
+ 		 * application */
+ 		gtk_label_set_label (GTK_LABEL (self->label_details_origin_value), C_("origin", "Unknown"));
++		gtk_widget_set_visible(GTK_LABEL (self->label_details_origin_value), FALSE);
++		gtk_widget_set_visible(GTK_LABEL (self->label_details_origin_title), FALSE);
++
+ 	} else {
+ 		gtk_label_set_label (GTK_LABEL (self->label_details_origin_value), origin);
+ 	}
+@@ -1249,6 +1288,9 @@ gs_details_page_refresh_all (GsDetailsPage *self)
+ 		break;
+ 	}
+ 
++	if (!kudos)
++		gtk_widget_set_visible (self->grid_details_kudo, FALSE);
++
+ 	/* only show permissions for flatpak apps */
+ 	if (gs_app_get_bundle_kind (self->app) == AS_BUNDLE_KIND_FLATPAK &&
+ 	    gs_app_get_kind (self->app) == AS_APP_KIND_DESKTOP) {
+@@ -2669,6 +2711,7 @@ gs_details_page_class_init (GsDetailsPageClass *klass)
+ 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, box_addons);
+ 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, box_details);
+ 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, box_details_description);
++	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, box_details_bundle_content);
+ 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, box_details_support);
+ 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, box_progress);
+ 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, box_progress2);
+@@ -2706,6 +2749,7 @@ gs_details_page_class_init (GsDetailsPageClass *klass)
+ 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, button_details_license_nonfree);
+ 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, button_details_license_unknown);
+ 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, label_details_license_title);
++	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, label_details_license_title);
+ 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, box_details_license_value);
+ 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, label_details_origin_title);
+ 	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, label_details_origin_value);
+diff --git a/src/gs-details-page.ui b/src/gs-details-page.ui
+index 3e58f8cf..2bddaa91 100644
+--- a/src/gs-details-page.ui
++++ b/src/gs-details-page.ui
+@@ -367,6 +367,34 @@
+                             </child>
+                           </object>
+                         </child>
++			<!-- CLR customizations for the detail view -->
++			<child>
++			  <object class="GtkScrolledWindow">
++			    <property name="visible">True</property>
++			    <property name="can_focus">True</property>
++			    <property name="shadow_type">none</property>
++			    <property name="min_content_height">300</property>
++			    <property name="max_content_height">500</property>
++			    <child>
++			      <object class="GtkViewport">
++				<property name="visible">True</property>
++				<property name="can_focus">False</property>
++				<child>
++				  <object class="GtkBox" id="box_details_bundle_content">
++				    <property name="visible">False</property>
++				    <property name="can_focus">False</property>
++				    <property name="margin_bottom">14</property>
++				    <property name="orientation">vertical</property>
++				    <property name="spacing">5</property>
++				    <child>
++				      <placeholder/>
++				    </child>
++				  </object>
++				</child>
++			      </object>
++			    </child>
++			  </object>
++			</child>
+                         <child>
+                           <object class="GsInfoBar" id="infobar_details_app_repo">
+                             <property name="visible">True</property>
+diff --git a/src/gs-overview-page.c b/src/gs-overview-page.c
+index 5662abe3..8906e50c 100644
+--- a/src/gs-overview-page.c
++++ b/src/gs-overview-page.c
+@@ -790,7 +790,7 @@ gs_overview_page_load (GsOverviewPage *self)
+ 		priv->loading_recent = TRUE;
+ 		plugin_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_GET_RECENT,
+ 						 "age", (guint64) (60 * 60 * 24 * 60),
+-						 "max-results", 20,
++						 "max-results", 30,
+ 						 "refine-flags", GS_PLUGIN_REFINE_FLAGS_REQUIRE_RATING |
+ 								 GS_PLUGIN_REFINE_FLAGS_REQUIRE_ICON,
+ 						 "dedupe-flags", GS_APP_LIST_FILTER_FLAG_PREFER_INSTALLED |
+@@ -896,10 +896,6 @@ gs_overview_page_switch_to (GsPage *page, gboolean scroll_up)
+ 	widget = GTK_WIDGET (gtk_builder_get_object (priv->builder, "menu_button"));
+ 	gtk_widget_show (widget);
+ 
+-	/* hide the expander */
+-	gtk_revealer_set_transition_duration (GTK_REVEALER (priv->categories_more), 0);
+-	gtk_revealer_set_reveal_child (GTK_REVEALER (priv->categories_more), FALSE);
+-
+ 	if (scroll_up) {
+ 		adj = gtk_scrolled_window_get_vadjustment (GTK_SCROLLED_WINDOW (priv->scrolledwindow_overview));
+ 		gtk_adjustment_set_value (adj, gtk_adjustment_get_lower (adj));
+@@ -912,36 +908,6 @@ gs_overview_page_switch_to (GsPage *page, gboolean scroll_up)
+ 	gs_overview_page_load (self);
+ }
+ 
+-static void
+-categories_more_revealer_changed_cb (GtkRevealer *revealer,
+-				     GParamSpec *pspec,
+-				     GsOverviewPage *self)
+-{
+-	GsOverviewPagePrivate *priv = gs_overview_page_get_instance_private (self);
+-	gboolean child_revealed = gtk_revealer_get_child_revealed (revealer);
+-
+-	gtk_widget_set_visible (priv->categories_expander_button_up,
+-				child_revealed);
+-	gtk_widget_set_visible (priv->categories_expander_button_down,
+-				!child_revealed);
+-}
+-
+-static void
+-gs_overview_page_categories_expander_down_cb (GtkButton *button, GsOverviewPage *self)
+-{
+-	GsOverviewPagePrivate *priv = gs_overview_page_get_instance_private (self);
+-	gtk_revealer_set_transition_duration (GTK_REVEALER (priv->categories_more), 250);
+-	gtk_revealer_set_reveal_child (GTK_REVEALER (priv->categories_more), TRUE);
+-}
+-
+-static void
+-gs_overview_page_categories_expander_up_cb (GtkButton *button, GsOverviewPage *self)
+-{
+-	GsOverviewPagePrivate *priv = gs_overview_page_get_instance_private (self);
+-	gtk_revealer_set_transition_duration (GTK_REVEALER (priv->categories_more), 250);
+-	gtk_revealer_set_reveal_child (GTK_REVEALER (priv->categories_more), FALSE);
+-}
+-
+ static void
+ third_party_response_cb (GtkInfoBar *info_bar,
+                          gint response_id,
+@@ -1030,11 +996,6 @@ gs_overview_page_setup (GsPage *page,
+ 		gtk_container_add (GTK_CONTAINER (priv->box_recent), tile);
+ 	}
+ 
+-	/* handle category expander */
+-	g_signal_connect (priv->categories_expander_button_down, "clicked",
+-			  G_CALLBACK (gs_overview_page_categories_expander_down_cb), self);
+-	g_signal_connect (priv->categories_expander_button_up, "clicked",
+-			  G_CALLBACK (gs_overview_page_categories_expander_up_cb), self);
+ 	return TRUE;
+ }
+ 
+@@ -1044,10 +1005,6 @@ gs_overview_page_init (GsOverviewPage *self)
+ 	GsOverviewPagePrivate *priv = gs_overview_page_get_instance_private (self);
+ 	gtk_widget_init_template (GTK_WIDGET (self));
+ 	priv->settings = g_settings_new ("org.gnome.software");
+-	gtk_revealer_set_transition_duration (GTK_REVEALER (priv->categories_more), 250);
+-	g_signal_connect (priv->categories_more, "notify::child-revealed",
+-			  G_CALLBACK (categories_more_revealer_changed_cb),
+-			  self);
+ }
+ 
+ static void
+@@ -1122,10 +1079,6 @@ gs_overview_page_class_init (GsOverviewPageClass *klass)
+ 	gtk_widget_class_bind_template_child_private (widget_class, GsOverviewPage, recent_heading);
+ 	gtk_widget_class_bind_template_child_private (widget_class, GsOverviewPage, scrolledwindow_overview);
+ 	gtk_widget_class_bind_template_child_private (widget_class, GsOverviewPage, stack_overview);
+-	gtk_widget_class_bind_template_child_private (widget_class, GsOverviewPage, categories_expander_button_down);
+-	gtk_widget_class_bind_template_child_private (widget_class, GsOverviewPage, categories_expander_button_up);
+-	gtk_widget_class_bind_template_child_private (widget_class, GsOverviewPage, categories_expander_box);
+-	gtk_widget_class_bind_template_child_private (widget_class, GsOverviewPage, categories_more);
+ }
+ 
+ GsOverviewPage *
+diff --git a/src/gs-overview-page.ui b/src/gs-overview-page.ui
+index 21a19952..d3b82658 100644
+--- a/src/gs-overview-page.ui
++++ b/src/gs-overview-page.ui
+@@ -139,90 +139,19 @@
+                           </object>
+                         </child>
+                         <child>
+-                          <object class="GtkRevealer" id="categories_more">
+-                            <property name="visible">True</property>
+-                            <property name="transition-type">slide-up</property>
+-                            <child>
+-                              <object class="GtkFlowBox" id="flowbox_categories2">
+-                                <property name="visible">True</property>
+-                                <property name="margin-bottom">24</property>
+-                                <property name="row_spacing">14</property>
+-                                <property name="column_spacing">14</property>
+-                                <property name="homogeneous">True</property>
+-                                <property name="max_children_per_line">3</property>
+-                                <property name="selection_mode">none</property>
+-                                <accessibility>
+-                                  <relation target="category_heading" type="labelled-by"/>
+-                                </accessibility>
+-                              </object>
+-                            </child>
+-                          </object>
+-                        </child>
+-                        <child>
+-                          <object class="GtkBox" id="categories_expander_box">
+-                            <property name="visible">True</property>
+-                            <property name="vexpand">False</property>
+-                            <property name="orientation">horizontal</property>
+-                            <property name="margin_start">24</property>
+-                            <property name="margin_end">24</property>
+-                            <property name="margin-bottom">12</property>
+-                            <child>
+-                              <object class="GtkSeparator" id="categories_expander_lsep">
+-                                <property name="visible">True</property>
+-                                <property name="orientation">horizontal</property>
+-                                <property name="hexpand">True</property>
+-                                <property name="valign">center</property>
+-                              </object>
+-                            </child>
+-                            <child>
+-                              <object class="GtkButton" id="categories_expander_button_down">
+-                                <property name="visible">True</property>
+-                                <property name="can_focus">True</property>
+-                                <property name="margin-start">9</property>
+-                                <property name="margin-end">9</property>
+-                                <property name="valign">center</property>
+-                                <property name="relief">none</property>
+-                                <style>
+-                                  <class name="round-button"/>
+-                                </style>
+-                                <child>
+-                                  <object class="GtkImage" id="categories_expander_image_down">
+-                                    <property name="visible">True</property>
+-                                    <property name="icon_name">pan-down-symbolic</property>
+-                                    <property name="icon_size">1</property>
+-                                  </object>
+-                                </child>
+-                              </object>
+-                            </child>
+-                            <child>
+-                              <object class="GtkButton" id="categories_expander_button_up">
+-                                <property name="visible">False</property>
+-                                <property name="can_focus">True</property>
+-                                <property name="margin-start">9</property>
+-                                <property name="margin-end">9</property>
+-                                <property name="valign">center</property>
+-                                <property name="relief">none</property>
+-                                <style>
+-                                  <class name="round-button"/>
+-                                </style>
+-                                <child>
+-                                  <object class="GtkImage" id="categories_expander_image_up">
+-                                    <property name="visible">True</property>
+-                                    <property name="icon_name">pan-up-symbolic</property>
+-                                    <property name="icon_size">1</property>
+-                                  </object>
+-                                </child>
+-                              </object>
+-                            </child>
+-                            <child>
+-                              <object class="GtkSeparator" id="categories_expander_rsep">
+-                                <property name="visible">True</property>
+-                                <property name="orientation">horizontal</property>
+-                                <property name="hexpand">True</property>
+-                                <property name="valign">center</property>
+-                              </object>
+-                            </child>
+-                          </object>
++			  <object class="GtkFlowBox" id="flowbox_categories2">
++			    <property name="visible">True</property>
++			    <property name="can_focus">False</property>
++			    <property name="margin-bottom">24</property>
++			    <property name="row_spacing">14</property>
++			    <property name="column_spacing">14</property>
++			    <property name="homogeneous">True</property>
++			    <property name="max_children_per_line">3</property>
++			    <property name="selection_mode">none</property>
++			    <accessibility>
++			      <relation target="category_heading" type="labelled-by"/>
++			    </accessibility>
++			  </object>
+                         </child>
+ 
+                         <child>
+diff --git a/src/gs-prefs-dialog.ui b/src/gs-prefs-dialog.ui
+index bdf989c0..7b41ceb1 100644
+--- a/src/gs-prefs-dialog.ui
++++ b/src/gs-prefs-dialog.ui
+@@ -14,7 +14,7 @@
+         <child type="title">
+           <object class="GtkLabel" id="label_header">
+             <property name="visible">True</property>
+-            <property name="label" translatable="yes">Update Preferences</property>
++            <property name="label" translatable="yes">Update Preferences (GNOME ext. and Flatpak)</property>
+             <property name="selectable">False</property>
+             <style>
+               <class name="title"/>
+diff --git a/src/gs-star-widget.c b/src/gs-star-widget.c
+index 105fb2c6..b55ffa44 100644
+--- a/src/gs-star-widget.c
++++ b/src/gs-star-widget.c
+@@ -114,6 +114,9 @@ gs_star_widget_refresh (GsStarWidget *star)
+ 					     "star-enabled" : "star-disabled");
+ 		gtk_widget_set_visible (w, TRUE);
+ 		gtk_container_add (GTK_CONTAINER (priv->box1), w);
++		if (priv->rating == G_MAXINT) {
++			gtk_widget_set_visible(w, FALSE);
++		}
+ 	}
+ }
+ 
+-- 
+2.23.0
+
