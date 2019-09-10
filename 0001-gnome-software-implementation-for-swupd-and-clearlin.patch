@@ -1,11 +1,12 @@
-From b4cd11abeed58b73b319febfd5057a1c1cffb7f1 Mon Sep 17 00:00:00 2001
+From af7b9fe93d3353e8a072b8708450f381d3835fcf Mon Sep 17 00:00:00 2001
 From: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@intel.com>
-Date: Mon, 26 Aug 2019 20:27:01 -0500
-Subject: [PATCH] CLR customizations ported for 3-36
+Date: Mon, 9 Sep 2019 14:34:49 -0500
+Subject: [PATCH] gnome-software implementation for swupd and clearlinux
+ customizations
 
 Signed-off-by: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@intel.com>
 ---
- lib/gs-app.c                     | 122 ++++++
+ lib/gs-app.c                     | 120 +++++
  lib/gs-app.h                     |  12 +
  meson_options.txt                |   1 +
  plugins/core/gs-desktop-common.c |  27 --
@@ -14,18 +15,17 @@ Signed-off-by: Josue David Hernandez Gutierrez <josue.d.hernandez.gutierrez@inte
  plugins/swupd/meson.build        |  16 +
  src/gnome-software.ui            |   2 +-
  src/gs-application.c             |  26 ++
- src/gs-details-page.c            |  46 +-
+ src/gs-details-page.c            |  44 +-
  src/gs-details-page.ui           |  28 ++
- src/gs-overview-page.c           |  49 +--
- src/gs-overview-page.ui          |  97 +---
+ src/gs-overview-page.c           |   2 +-
  src/gs-prefs-dialog.ui           |   2 +-
  src/gs-star-widget.c             |   3 +
- 15 files changed, 1002 insertions(+), 162 deletions(-)
+ 14 files changed, 985 insertions(+), 31 deletions(-)
  create mode 100644 plugins/swupd/gs-plugin-swupd.c
  create mode 100644 plugins/swupd/meson.build
 
 diff --git a/lib/gs-app.c b/lib/gs-app.c
-index f09ddc98..dfa73726 100644
+index b07921ce..14c75d5b 100644
 --- a/lib/gs-app.c
 +++ b/lib/gs-app.c
 @@ -66,10 +66,12 @@ typedef struct
@@ -37,100 +37,100 @@ index f09ddc98..dfa73726 100644
  	GPtrArray		*screenshots;
  	GPtrArray		*categories;
  	GPtrArray		*key_colors;
-+	GPtrArray		*keywords;
++	GPtrArray               *keywords;
  	GHashTable		*urls;
  	GHashTable		*launchables;
  	gchar			*license;
-@@ -615,6 +617,12 @@ gs_app_to_string_append (GsApp *app, GString *str)
+@@ -611,6 +613,12 @@ gs_app_to_string_append (GsApp *app, GString *str)
  				  color->green * 255.f,
  				  color->blue * 255.f);
  	}
-+	if (priv->keywords != NULL) {
-+		for (i = 0; i < priv->keywords->len; i++) {
-+			tmp = g_ptr_array_index (priv->keywords, i);
-+			gs_app_kv_lpad (str, "keyword", tmp);
-+		}
-+	}
++        if (priv->keywords != NULL) {
++               for (i = 0; i < priv->keywords->len; i++) {
++                       tmp = g_ptr_array_index (priv->keywords, i);
++                       gs_app_kv_lpad (str, "keyword", tmp);
++               }
++        }
  	keys = g_hash_table_get_keys (priv->metadata);
  	for (GList *l = keys; l != NULL; l = l->next) {
  		GVariant *val;
-@@ -2171,6 +2179,75 @@ gs_app_set_description (GsApp *app, GsAppQuality quality, const gchar *descripti
+@@ -2138,6 +2146,75 @@ gs_app_set_description (GsApp *app, GsAppQuality quality, const gchar *descripti
  	_g_set_str (&priv->description, description);
  }
  
 +GPtrArray *
 +gs_app_get_bundle_content (GsApp *app)
 +{
-+	GsAppPrivate *priv = gs_app_get_instance_private (app);
-+	g_return_val_if_fail (GS_IS_APP (app), NULL);
-+	return priv->bundle_content;
++       GsAppPrivate *priv = gs_app_get_instance_private (app);
++       g_return_val_if_fail (GS_IS_APP (app), NULL);
++       return priv->bundle_content;
 +}
 +
 +gboolean
 +gs_app_has_bundle_content (GsApp *app, const char *package)
 +{
-+	GsAppPrivate *priv = gs_app_get_instance_private (app);
-+	const gchar *tmp;
-+	guint i;
++       GsAppPrivate *priv = gs_app_get_instance_private (app);
++       const gchar *tmp;
++       guint i;
 +
-+	g_return_val_if_fail (GS_IS_APP (app), FALSE);
++       g_return_val_if_fail (GS_IS_APP (app), FALSE);
 +
-+	for (i = 0; i < priv->bundle_content->len; i++) {
-+		tmp = g_ptr_array_index (priv->bundle_content, i);
-+		if (g_strcmp0 (tmp, package) == 0)
-+			return TRUE;
-+	}
-+	return FALSE;
++       for (i = 0; i < priv->bundle_content->len; i++) {
++               tmp = g_ptr_array_index (priv->bundle_content, i);
++               if (g_strcmp0 (tmp, package) == 0)
++                       return TRUE;
++       }
++       return FALSE;
 +}
 +
 +void
 +gs_app_set_bundle_content (GsApp *app, GPtrArray *content)
 +{
-+	GsAppPrivate *priv = gs_app_get_instance_private (app);
-+	g_autoptr (GMutexLocker) locker = NULL;
-+	g_return_if_fail (GS_IS_APP (app));
-+	g_return_if_fail (content != NULL);
-+	locker = g_mutex_locker_new (&priv->mutex);
-+	_g_set_ptr_array (&priv->bundle_content, content);
++       GsAppPrivate *priv = gs_app_get_instance_private (app);
++       g_autoptr (GMutexLocker) locker = NULL;
++       g_return_if_fail (GS_IS_APP (app));
++       g_return_if_fail (content != NULL);
++       locker = g_mutex_locker_new (&priv->mutex);
++       _g_set_ptr_array (&priv->bundle_content, content);
 +}
 +
 +void
 +gs_app_add_bundle_content (GsApp *app, const gchar *package)
 +{
-+	GsAppPrivate *priv = gs_app_get_instance_private (app);
-+	g_autoptr (GMutexLocker) locker = NULL;
-+	g_return_if_fail (GS_IS_APP (app));
-+	g_return_if_fail (package != NULL);
-+	locker = g_mutex_locker_new (&priv->mutex);
-+	if (gs_app_has_bundle_content (app, package))
-+		return;
-+	g_ptr_array_add (priv->bundle_content, package);
++       GsAppPrivate *priv = gs_app_get_instance_private (app);
++       g_autoptr (GMutexLocker) locker = NULL;
++       g_return_if_fail (GS_IS_APP (app));
++       g_return_if_fail (package != NULL);
++       locker = g_mutex_locker_new (&priv->mutex);
++       if (gs_app_has_bundle_content (app, package))
++               return;
++       g_ptr_array_add (priv->bundle_content, package);
 +}
 +
 +gboolean
 +gs_app_remove_bundle_content (GsApp *app, const gchar *package)
 +{
-+	GsAppPrivate *priv = gs_app_get_instance_private (app);
-+	const gchar *tmp;
-+	guint i;
-+	g_autoptr(GMutexLocker) locker = NULL;
-+	g_return_val_if_fail (GS_IS_APP (app), FALSE);
-+	locker = g_mutex_locker_new (&priv->mutex);
++       GsAppPrivate *priv = gs_app_get_instance_private (app);
++       const gchar *tmp;
++       guint i;
++       g_autoptr(GMutexLocker) locker = NULL;
++       g_return_val_if_fail (GS_IS_APP (app), FALSE);
++       locker = g_mutex_locker_new (&priv->mutex);
 +
-+	for (i = 0; i < priv->bundle_content->len; i++) {
-+		tmp = g_ptr_array_index (priv->bundle_content, i);
-+		if (g_strcmp0 (tmp, package) != 0)
-+			continue;
-+		g_ptr_array_remove_index_fast (priv->bundle_content, i);
-+		return TRUE;
-+	}
-+	return FALSE;
++       for (i = 0; i < priv->bundle_content->len; i++) {
++               tmp = g_ptr_array_index (priv->bundle_content, i);
++               if (g_strcmp0 (tmp, package) != 0)
++                       continue;
++               g_ptr_array_remove_index_fast (priv->bundle_content, i);
++               return TRUE;
++       }
++       return FALSE;
 +}
 +
  /**
   * gs_app_get_url:
   * @app: a #GsApp
-@@ -2874,6 +2951,8 @@ gs_app_get_rating (GsApp *app)
+@@ -2841,6 +2918,8 @@ gs_app_get_rating (GsApp *app)
  {
  	GsAppPrivate *priv = gs_app_get_instance_private (app);
  	g_return_val_if_fail (GS_IS_APP (app), -1);
@@ -139,8 +139,8 @@ index f09ddc98..dfa73726 100644
  	return priv->rating;
  }
  
-@@ -3662,6 +3741,44 @@ gs_app_add_key_color (GsApp *app, GdkRGBA *key_color)
- 	g_ptr_array_add (priv->key_colors, gdk_rgba_copy (key_color));
+@@ -3631,6 +3710,44 @@ gs_app_add_key_color (GsApp *app, GdkRGBA *key_color)
+ 	gs_app_queue_notify (app, "key-colors");
  }
  
 +/**
@@ -156,9 +156,9 @@ index f09ddc98..dfa73726 100644
 +GPtrArray *
 +gs_app_get_keywords (GsApp *app)
 +{
-+	GsAppPrivate *priv = gs_app_get_instance_private (app);
-+	g_return_val_if_fail (GS_IS_APP (app), NULL);
-+	return priv->keywords;
++       GsAppPrivate *priv = gs_app_get_instance_private (app);
++       g_return_val_if_fail (GS_IS_APP (app), NULL);
++       return priv->keywords;
 +}
 +
 +/**
@@ -173,36 +173,27 @@ index f09ddc98..dfa73726 100644
 +void
 +gs_app_set_keywords (GsApp *app, GPtrArray *keywords)
 +{
-+	GsAppPrivate *priv = gs_app_get_instance_private (app);
-+	g_autoptr(GMutexLocker) locker = NULL;
-+	g_return_if_fail (GS_IS_APP (app));
-+	g_return_if_fail (keywords != NULL);
-+	locker = g_mutex_locker_new (&priv->mutex);
-+	_g_set_ptr_array (&priv->keywords, keywords);
++       GsAppPrivate *priv = gs_app_get_instance_private (app);
++       g_autoptr(GMutexLocker) locker = NULL;
++       g_return_if_fail (GS_IS_APP (app));
++       g_return_if_fail (keywords != NULL);
++       locker = g_mutex_locker_new (&priv->mutex);
++       _g_set_ptr_array (&priv->keywords, keywords);
 +}
 +
  /**
   * gs_app_add_kudo:
   * @app: a #GsApp
-@@ -3769,6 +3886,8 @@ gs_app_get_kudos_percentage (GsApp *app)
- 		percentage += 20;
- 	if ((priv->kudos & GS_APP_KUDO_HAS_KEYWORDS) > 0)
- 		percentage += 5;
-+	if ((priv->kudos & GS_APP_KUDO_HAS_KEYWORDS) > 0)
-+		percentage += 5;
- 	if ((priv->kudos & GS_APP_KUDO_HAS_SCREENSHOTS) > 0)
- 		percentage += 20;
- 	if ((priv->kudos & GS_APP_KUDO_HIGH_CONTRAST) > 0)
-@@ -4198,6 +4317,8 @@ gs_app_finalize (GObject *object)
+@@ -4173,6 +4290,8 @@ gs_app_finalize (GObject *object)
  	g_ptr_array_unref (priv->categories);
  	g_ptr_array_unref (priv->key_colors);
  	g_clear_object (&priv->cancellable);
 +	if (priv->keywords != NULL)
-+		g_ptr_array_unref (priv->keywords);
++               g_ptr_array_unref (priv->keywords);
  	if (priv->local_file != NULL)
  		g_object_unref (priv->local_file);
  	if (priv->content_rating != NULL)
-@@ -4335,6 +4456,7 @@ gs_app_init (GsApp *app)
+@@ -4315,6 +4434,7 @@ gs_app_init (GsApp *app)
  	priv->sources = g_ptr_array_new_with_free_func (g_free);
  	priv->source_ids = g_ptr_array_new_with_free_func (g_free);
  	priv->categories = g_ptr_array_new_with_free_func (g_free);
@@ -211,41 +202,41 @@ index f09ddc98..dfa73726 100644
  	priv->addons = gs_app_list_new ();
  	priv->related = gs_app_list_new ();
 diff --git a/lib/gs-app.h b/lib/gs-app.h
-index cd185154..eb731bcc 100644
+index 6a67dcd5..00dca664 100644
 --- a/lib/gs-app.h
 +++ b/lib/gs-app.h
-@@ -235,6 +235,15 @@ const gchar	*gs_app_get_description		(GsApp		*app);
+@@ -234,6 +234,15 @@ const gchar	*gs_app_get_description		(GsApp		*app);
  void		 gs_app_set_description		(GsApp		*app,
  						 GsAppQuality	 quality,
  						 const gchar	*description);
 +GPtrArray       *gs_app_get_bundle_content      (GsApp          *app);
 +gboolean         gs_app_has_bundle_content      (GsApp          *app,
-+						 const char     *package);
++                                                const char     *package);
 +void             gs_app_set_bundle_content      (GsApp          *app,
-+						 GPtrArray      *content);
++                                                GPtrArray      *content);
 +void             gs_app_add_bundle_content      (GsApp          *app,
-+						 const gchar    *package);
++                                                const gchar    *package);
 +gboolean         gs_app_remove_bundle_content   (GsApp          *app,
-+						 const gchar    *package);
++                                                const gchar    *package);
  const gchar	*gs_app_get_url			(GsApp		*app,
  						 AsUrlKind	 kind);
  void		 gs_app_set_url			(GsApp		*app,
-@@ -350,6 +359,9 @@ void		 gs_app_add_category		(GsApp		*app,
+@@ -346,6 +355,9 @@ void		 gs_app_add_category		(GsApp		*app,
  						 const gchar	*category);
  gboolean	 gs_app_remove_category		(GsApp		*app,
  						 const gchar	*category);
-+GPtrArray	*gs_app_get_keywords		(GsApp		*app);
-+void		 gs_app_set_keywords		(GsApp		*app,
-+						 GPtrArray	*keywords);
++GPtrArray      *gs_app_get_keywords            (GsApp          *app);
++void            gs_app_set_keywords            (GsApp          *app,
++                                                GPtrArray      *keywords);
  void		 gs_app_add_kudo		(GsApp		*app,
  						 GsAppKudo	 kudo);
  void		 gs_app_remove_kudo		(GsApp		*app,
 diff --git a/meson_options.txt b/meson_options.txt
-index 99f28f6d..e1500b4d 100644
+index 14174f07..c889608e 100644
 --- a/meson_options.txt
 +++ b/meson_options.txt
-@@ -7,6 +7,7 @@ option('packagekit_autoremove', type : 'boolean', value : false, description : '
- option('polkit', type : 'boolean', value : true, description : 'enable PolKit support')
+@@ -8,6 +8,7 @@ option('polkit', type : 'boolean', value : true, description : 'enable PolKit su
+ option('eos_updater', type : 'boolean', value : false, description : 'enable eos-updater support')
  option('fwupd', type : 'boolean', value : true, description : 'enable fwupd support')
  option('flatpak', type : 'boolean', value : true, description : 'enable Flatpak support')
 +option('swupd', type : 'boolean', value : true, description : 'enable Swupd support')
@@ -294,18 +285,18 @@ index f2c09222..6bfaabb1 100644
  };
  
 diff --git a/plugins/meson.build b/plugins/meson.build
-index f38fc048..2956e39a 100644
+index 2eebff02..41855bfc 100644
 --- a/plugins/meson.build
 +++ b/plugins/meson.build
-@@ -14,6 +14,9 @@ subdir('dummy')
- subdir('epiphany')
+@@ -15,6 +15,9 @@ subdir('epiphany')
+ subdir('fedora-langpacks')
  subdir('fedora-pkgdb-collections')
  
 +if get_option('swupd')
 +  subdir('swupd')
 +endif
- if get_option('flatpak')
-   subdir('flatpak')
+ if get_option('eos_updater')
+   subdir('eos-updater')
  endif
 diff --git a/plugins/swupd/gs-plugin-swupd.c b/plugins/swupd/gs-plugin-swupd.c
 new file mode 100644
@@ -1067,7 +1058,7 @@ index 00000000..998ad90d
 +)
 \ No newline at end of file
 diff --git a/src/gnome-software.ui b/src/gnome-software.ui
-index a4b35cc0..058766ce 100644
+index cb0db967..d75ec66d 100644
 --- a/src/gnome-software.ui
 +++ b/src/gnome-software.ui
 @@ -40,7 +40,7 @@
@@ -1080,7 +1071,7 @@ index a4b35cc0..058766ce 100644
        </item>
      </section>
 diff --git a/src/gs-application.c b/src/gs-application.c
-index c1d359ae..9b83b9ec 100644
+index 05a06603..c2b7ba4b 100644
 --- a/src/gs-application.c
 +++ b/src/gs-application.c
 @@ -146,11 +146,14 @@ gs_application_initialize_plugins (GsApplication *app)
@@ -1102,27 +1093,27 @@ index c1d359ae..9b83b9ec 100644
  	if (tmp != NULL)
  		plugin_whitelist = g_strsplit (tmp, ",", -1);
  
-+	proxy_mode = g_settings_get_string (settings, "mode");
-+	g_debug ("gnome proxy configuration: %s", proxy_mode);
-+	tmp = g_getenv ("http_proxy");
-+	if (tmp == NULL && g_strcmp0 (proxy_mode, "manual") == 0) {
-+		g_autoptr(GSettings) http = g_settings_get_child (settings, "http");
-+		g_autofree gchar *host = g_settings_get_string (http, "host");
-+		int port = g_settings_get_int (http, "port");
-+		g_autofree gchar *proxy_url = g_strdup_printf ("http://%s:%d", host, port);
-+		g_setenv ("http_proxy", proxy_url, TRUE);
-+		g_debug ("set http_proxy %s", proxy_url);
-+	}
++       proxy_mode = g_settings_get_string (settings, "mode");
++       g_debug ("gnome proxy configuration: %s", proxy_mode);
++       tmp = g_getenv ("http_proxy");
++       if (tmp == NULL && g_strcmp0 (proxy_mode, "manual") == 0) {
++               g_autoptr(GSettings) http = g_settings_get_child (settings, "http");
++               g_autofree gchar *host = g_settings_get_string (http, "host");
++               int port = g_settings_get_int (http, "port");
++               g_autofree gchar *proxy_url = g_strdup_printf ("http://%s:%d", host, port);
++               g_setenv ("http_proxy", proxy_url, TRUE);
++               g_debug ("set http_proxy %s", proxy_url);
++       }
 +
-+	tmp = g_getenv ("https_proxy");
-+	if (tmp == NULL && g_strcmp0 (proxy_mode, "manual") == 0) {
-+		g_autoptr(GSettings) http = g_settings_get_child (settings, "https");
-+		g_autofree gchar *host = g_settings_get_string (http, "host");
-+		int port = g_settings_get_int (http, "port");
-+		g_autofree gchar *proxy_url = g_strdup_printf ("http://%s:%d", host, port);
-+		g_setenv ("https_proxy", proxy_url, TRUE);
-+		g_debug ("set https_proxy %s", proxy_url);
-+	}
++       tmp = g_getenv ("https_proxy");
++       if (tmp == NULL && g_strcmp0 (proxy_mode, "manual") == 0) {
++               g_autoptr(GSettings) http = g_settings_get_child (settings, "https");
++               g_autofree gchar *host = g_settings_get_string (http, "host");
++               int port = g_settings_get_int (http, "port");
++               g_autofree gchar *proxy_url = g_strdup_printf ("http://%s:%d", host, port);
++               g_setenv ("https_proxy", proxy_url, TRUE);
++               g_debug ("set https_proxy %s", proxy_url);
++       }
 +
  	app->plugin_loader = gs_plugin_loader_new ();
  	if (g_file_test (LOCALPLUGINDIR, G_FILE_TEST_EXISTS))
@@ -1136,10 +1127,10 @@ index c1d359ae..9b83b9ec 100644
  	};
  	const gchar *copyright = "Copyright \xc2\xa9 2016-2019 Richard Hughes, Matthias Clasen, Kalev Lember";
 diff --git a/src/gs-details-page.c b/src/gs-details-page.c
-index 3df2806b..0dfdd7e8 100644
+index f2be29da..56d85df8 100644
 --- a/src/gs-details-page.c
 +++ b/src/gs-details-page.c
-@@ -61,6 +61,7 @@ struct _GsDetailsPage
+@@ -60,6 +60,7 @@ struct _GsDetailsPage
  	GtkWidget		*box_addons;
  	GtkWidget		*box_details;
  	GtkWidget		*box_details_description;
@@ -1147,27 +1138,19 @@ index 3df2806b..0dfdd7e8 100644
  	GtkWidget		*box_details_support;
  	GtkWidget		*box_progress;
  	GtkWidget		*box_progress2;
-@@ -552,6 +553,7 @@ gs_details_page_refresh_screenshots (GsDetailsPage *self)
- 				screenshots->len > 0);
- 	if (screenshots->len == 0) {
- 		gs_container_remove_all (GTK_CONTAINER (self->box_details_screenshot_thumbnails));
-+		gtk_widget_set_visible (self->box_details_screenshot_fallback, FALSE);
- 		gtk_widget_hide (self->box_details_screenshot_scrolledwindow);
- 		return;
- 	}
-@@ -723,6 +725,11 @@ gs_details_page_refresh_size (GsDetailsPage *self)
+@@ -756,6 +757,11 @@ gs_details_page_refresh_size (GsDetailsPage *self)
  	    gs_app_get_size_download (self->app) != GS_APP_SIZE_UNKNOWABLE) {
  		g_autofree gchar *size = NULL;
  		size = g_format_size (gs_app_get_size_download (self->app));
 +		if (size) {
-+			gtk_widget_hide (self->label_details_size_download_title);
-+			gtk_widget_hide (self->label_details_size_download_value);
-+			return;
-+		}
++                       gtk_widget_hide (self->label_details_size_download_title);
++                       gtk_widget_hide (self->label_details_size_download_value);
++		       return;
++                }
  		gtk_label_set_label (GTK_LABEL (self->label_details_size_download_value), size);
  		gtk_widget_show (self->label_details_size_download_title);
  		gtk_widget_show (self->label_details_size_download_value);
-@@ -1049,7 +1056,9 @@ gs_details_page_refresh_all (GsDetailsPage *self)
+@@ -1071,7 +1077,9 @@ gs_details_page_refresh_all (GsDetailsPage *self)
  	guint64 updated;
  	guint64 user_integration_bf;
  	gboolean show_support_box = FALSE;
@@ -1177,77 +1160,76 @@ index 3df2806b..0dfdd7e8 100644
  
  	/* change widgets */
  	tmp = gs_app_get_name (self->app);
-@@ -1077,6 +1086,30 @@ gs_details_page_refresh_all (GsDetailsPage *self)
+@@ -1099,6 +1107,30 @@ gs_details_page_refresh_all (GsDetailsPage *self)
  	tmp = gs_app_get_description (self->app);
  	gs_details_page_set_description (self, tmp);
  
-+	/* CLR customizations for the details view  */
-+	bundle_content = gs_app_get_bundle_content (self->app);
-+	gs_container_remove_all	(GTK_CONTAINER (self->box_details_bundle_content));
++       /* CLR customizations for the details view  */
++       bundle_content = gs_app_get_bundle_content (self->app);
++       gs_container_remove_all (GTK_CONTAINER (self->box_details_bundle_content));
 +
-+	for (i = 0; i < bundle_content->len; i++) {
-+		gchar *pname = g_ptr_array_index (bundle_content, i);
-+		GtkWidget *lab = gtk_label_new (pname);
-+		GtkStyleContext *context = NULL;
-+		gtk_label_set_line_wrap (GTK_LABEL (lab), TRUE);
-+		gtk_label_set_max_width_chars (GTK_LABEL (lab), 40);
-+		gtk_label_set_selectable (GTK_LABEL (lab), TRUE);
-+		gtk_widget_set_visible (lab, TRUE);
-+		gtk_widget_set_can_focus (lab, FALSE);
-+		g_object_set (lab,
-+			      "xalign", 0.0,
-+			      NULL);
++       for (i = 0; i < bundle_content->len; i++) {
++               gchar *pname = g_ptr_array_index (bundle_content, i);
++               GtkWidget *lab = gtk_label_new (pname);
++               GtkStyleContext *context = NULL;
++               gtk_label_set_line_wrap (GTK_LABEL (lab), TRUE);
++               gtk_label_set_max_width_chars (GTK_LABEL (lab), 40);
++               gtk_label_set_selectable (GTK_LABEL (lab), TRUE);
++               gtk_widget_set_visible (lab, TRUE);
++               gtk_widget_set_can_focus (lab, FALSE);
++               g_object_set (lab,
++                             "xalign", 0.0,
++                             NULL);
 +
-+		context = gtk_widget_get_style_context (lab);
-+		gtk_style_context_add_class (context, "details_license_unknown");
++               context = gtk_widget_get_style_context (lab);
++               gtk_style_context_add_class (context, "details_license_unknown");
 +
-+		gtk_box_pack_start (self->box_details_bundle_content, lab, FALSE, FALSE, 0);
-+	}
-+	gtk_widget_set_visible (self->box_details_bundle_content, TRUE);
++               gtk_box_pack_start (self->box_details_bundle_content, lab, FALSE, FALSE, 0);
++       }
++       gtk_widget_set_visible (self->box_details_bundle_content, TRUE);
 +
  	/* set the icon */
  	pixbuf = gs_app_get_pixbuf (self->app);
  	if (pixbuf != NULL) {
-@@ -1122,7 +1155,8 @@ gs_details_page_refresh_all (GsDetailsPage *self)
+@@ -1144,7 +1176,8 @@ gs_details_page_refresh_all (GsDetailsPage *self)
  	if (tmp == NULL) {
  		gtk_widget_set_visible (self->button_details_license_free, FALSE);
  		gtk_widget_set_visible (self->button_details_license_nonfree, FALSE);
 -		gtk_widget_set_visible (self->button_details_license_unknown, TRUE);
 +		gtk_widget_set_visible (self->button_details_license_unknown, FALSE);
-+		gtk_widget_set_visible (GTK_LABEL (self->label_details_license_title), FALSE);
++                gtk_widget_set_visible (GTK_LABEL (self->label_details_license_title), FALSE);
  	} else if (gs_app_get_license_is_free (self->app)) {
  		gtk_widget_set_visible (self->button_details_license_free, TRUE);
  		gtk_widget_set_visible (self->button_details_license_nonfree, FALSE);
-@@ -1140,6 +1174,8 @@ gs_details_page_refresh_all (GsDetailsPage *self)
+@@ -1162,6 +1195,8 @@ gs_details_page_refresh_all (GsDetailsPage *self)
  	} else {
  		/* TRANSLATORS: this is where the version is not known */
  		gtk_label_set_label (GTK_LABEL (self->label_details_version_value), C_("version", "Unknown"));
 +		gtk_widget_set_visible (GTK_LABEL (self->label_details_version_title), FALSE);
-+		gtk_widget_set_visible (GTK_LABEL (self->label_details_version_value), FALSE);
++                gtk_widget_set_visible (GTK_LABEL (self->label_details_version_value), FALSE);
  	}
  
  	/* refresh size information */
-@@ -1206,6 +1242,9 @@ gs_details_page_refresh_all (GsDetailsPage *self)
+@@ -1228,6 +1263,8 @@ gs_details_page_refresh_all (GsDetailsPage *self)
  		/* TRANSLATORS: this is where we don't know the origin of the
  		 * application */
  		gtk_label_set_label (GTK_LABEL (self->label_details_origin_value), C_("origin", "Unknown"));
 +		gtk_widget_set_visible(GTK_LABEL (self->label_details_origin_value), FALSE);
-+		gtk_widget_set_visible(GTK_LABEL (self->label_details_origin_title), FALSE);
-+
++                gtk_widget_set_visible(GTK_LABEL (self->label_details_origin_title), FALSE);
  	} else {
  		gtk_label_set_label (GTK_LABEL (self->label_details_origin_value), origin);
  	}
-@@ -1249,6 +1288,9 @@ gs_details_page_refresh_all (GsDetailsPage *self)
+@@ -1271,6 +1308,9 @@ gs_details_page_refresh_all (GsDetailsPage *self)
  		break;
  	}
  
 +	if (!kudos)
-+		gtk_widget_set_visible (self->grid_details_kudo, FALSE);
++               gtk_widget_set_visible (self->grid_details_kudo, FALSE);
 +
  	/* only show permissions for flatpak apps */
  	if (gs_app_get_bundle_kind (self->app) == AS_BUNDLE_KIND_FLATPAK &&
  	    gs_app_get_kind (self->app) == AS_APP_KIND_DESKTOP) {
-@@ -2669,6 +2711,7 @@ gs_details_page_class_init (GsDetailsPageClass *klass)
+@@ -2654,6 +2694,7 @@ gs_details_page_class_init (GsDetailsPageClass *klass)
  	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, box_addons);
  	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, box_details);
  	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, box_details_description);
@@ -1255,7 +1237,7 @@ index 3df2806b..0dfdd7e8 100644
  	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, box_details_support);
  	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, box_progress);
  	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, box_progress2);
-@@ -2706,6 +2749,7 @@ gs_details_page_class_init (GsDetailsPageClass *klass)
+@@ -2691,6 +2732,7 @@ gs_details_page_class_init (GsDetailsPageClass *klass)
  	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, button_details_license_nonfree);
  	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, button_details_license_unknown);
  	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, label_details_license_title);
@@ -1264,49 +1246,49 @@ index 3df2806b..0dfdd7e8 100644
  	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, label_details_origin_title);
  	gtk_widget_class_bind_template_child (widget_class, GsDetailsPage, label_details_origin_value);
 diff --git a/src/gs-details-page.ui b/src/gs-details-page.ui
-index 3e58f8cf..2bddaa91 100644
+index b104bf8e..96b6f9a2 100644
 --- a/src/gs-details-page.ui
 +++ b/src/gs-details-page.ui
-@@ -367,6 +367,34 @@
+@@ -370,6 +370,34 @@
                              </child>
                            </object>
                          </child>
 +			<!-- CLR customizations for the detail view -->
-+			<child>
-+			  <object class="GtkScrolledWindow">
-+			    <property name="visible">True</property>
-+			    <property name="can_focus">True</property>
-+			    <property name="shadow_type">none</property>
-+			    <property name="min_content_height">300</property>
-+			    <property name="max_content_height">500</property>
-+			    <child>
-+			      <object class="GtkViewport">
-+				<property name="visible">True</property>
-+				<property name="can_focus">False</property>
-+				<child>
-+				  <object class="GtkBox" id="box_details_bundle_content">
-+				    <property name="visible">False</property>
-+				    <property name="can_focus">False</property>
-+				    <property name="margin_bottom">14</property>
-+				    <property name="orientation">vertical</property>
-+				    <property name="spacing">5</property>
-+				    <child>
-+				      <placeholder/>
-+				    </child>
-+				  </object>
-+				</child>
-+			      </object>
-+			    </child>
-+			  </object>
-+			</child>
++                       <child>
++                         <object class="GtkScrolledWindow">
++                           <property name="visible">True</property>
++                           <property name="can_focus">True</property>
++                           <property name="shadow_type">none</property>
++                           <property name="min_content_height">300</property>
++                           <property name="max_content_height">500</property>
++                           <child>
++                             <object class="GtkViewport">
++                               <property name="visible">True</property>
++                               <property name="can_focus">False</property>
++                               <child>
++                                 <object class="GtkBox" id="box_details_bundle_content">
++                                   <property name="visible">False</property>
++                                   <property name="can_focus">False</property>
++                                   <property name="margin_bottom">14</property>
++                                   <property name="orientation">vertical</property>
++                                   <property name="spacing">5</property>
++                                   <child>
++                                     <placeholder/>
++                                   </child>
++                                 </object>
++                               </child>
++                             </object>
++                           </child>
++                         </object>
++                       </child>
                          <child>
                            <object class="GsInfoBar" id="infobar_details_app_repo">
                              <property name="visible">True</property>
 diff --git a/src/gs-overview-page.c b/src/gs-overview-page.c
-index 5662abe3..8906e50c 100644
+index d522cf86..de7eb459 100644
 --- a/src/gs-overview-page.c
 +++ b/src/gs-overview-page.c
-@@ -790,7 +790,7 @@ gs_overview_page_load (GsOverviewPage *self)
+@@ -756,7 +756,7 @@ gs_overview_page_load (GsOverviewPage *self)
  		priv->loading_recent = TRUE;
  		plugin_job = gs_plugin_job_newv (GS_PLUGIN_ACTION_GET_RECENT,
  						 "age", (guint64) (60 * 60 * 24 * 60),
@@ -1315,196 +1297,6 @@ index 5662abe3..8906e50c 100644
  						 "refine-flags", GS_PLUGIN_REFINE_FLAGS_REQUIRE_RATING |
  								 GS_PLUGIN_REFINE_FLAGS_REQUIRE_ICON,
  						 "dedupe-flags", GS_APP_LIST_FILTER_FLAG_PREFER_INSTALLED |
-@@ -896,10 +896,6 @@ gs_overview_page_switch_to (GsPage *page, gboolean scroll_up)
- 	widget = GTK_WIDGET (gtk_builder_get_object (priv->builder, "menu_button"));
- 	gtk_widget_show (widget);
- 
--	/* hide the expander */
--	gtk_revealer_set_transition_duration (GTK_REVEALER (priv->categories_more), 0);
--	gtk_revealer_set_reveal_child (GTK_REVEALER (priv->categories_more), FALSE);
--
- 	if (scroll_up) {
- 		adj = gtk_scrolled_window_get_vadjustment (GTK_SCROLLED_WINDOW (priv->scrolledwindow_overview));
- 		gtk_adjustment_set_value (adj, gtk_adjustment_get_lower (adj));
-@@ -912,36 +908,6 @@ gs_overview_page_switch_to (GsPage *page, gboolean scroll_up)
- 	gs_overview_page_load (self);
- }
- 
--static void
--categories_more_revealer_changed_cb (GtkRevealer *revealer,
--				     GParamSpec *pspec,
--				     GsOverviewPage *self)
--{
--	GsOverviewPagePrivate *priv = gs_overview_page_get_instance_private (self);
--	gboolean child_revealed = gtk_revealer_get_child_revealed (revealer);
--
--	gtk_widget_set_visible (priv->categories_expander_button_up,
--				child_revealed);
--	gtk_widget_set_visible (priv->categories_expander_button_down,
--				!child_revealed);
--}
--
--static void
--gs_overview_page_categories_expander_down_cb (GtkButton *button, GsOverviewPage *self)
--{
--	GsOverviewPagePrivate *priv = gs_overview_page_get_instance_private (self);
--	gtk_revealer_set_transition_duration (GTK_REVEALER (priv->categories_more), 250);
--	gtk_revealer_set_reveal_child (GTK_REVEALER (priv->categories_more), TRUE);
--}
--
--static void
--gs_overview_page_categories_expander_up_cb (GtkButton *button, GsOverviewPage *self)
--{
--	GsOverviewPagePrivate *priv = gs_overview_page_get_instance_private (self);
--	gtk_revealer_set_transition_duration (GTK_REVEALER (priv->categories_more), 250);
--	gtk_revealer_set_reveal_child (GTK_REVEALER (priv->categories_more), FALSE);
--}
--
- static void
- third_party_response_cb (GtkInfoBar *info_bar,
-                          gint response_id,
-@@ -1030,11 +996,6 @@ gs_overview_page_setup (GsPage *page,
- 		gtk_container_add (GTK_CONTAINER (priv->box_recent), tile);
- 	}
- 
--	/* handle category expander */
--	g_signal_connect (priv->categories_expander_button_down, "clicked",
--			  G_CALLBACK (gs_overview_page_categories_expander_down_cb), self);
--	g_signal_connect (priv->categories_expander_button_up, "clicked",
--			  G_CALLBACK (gs_overview_page_categories_expander_up_cb), self);
- 	return TRUE;
- }
- 
-@@ -1044,10 +1005,6 @@ gs_overview_page_init (GsOverviewPage *self)
- 	GsOverviewPagePrivate *priv = gs_overview_page_get_instance_private (self);
- 	gtk_widget_init_template (GTK_WIDGET (self));
- 	priv->settings = g_settings_new ("org.gnome.software");
--	gtk_revealer_set_transition_duration (GTK_REVEALER (priv->categories_more), 250);
--	g_signal_connect (priv->categories_more, "notify::child-revealed",
--			  G_CALLBACK (categories_more_revealer_changed_cb),
--			  self);
- }
- 
- static void
-@@ -1122,10 +1079,6 @@ gs_overview_page_class_init (GsOverviewPageClass *klass)
- 	gtk_widget_class_bind_template_child_private (widget_class, GsOverviewPage, recent_heading);
- 	gtk_widget_class_bind_template_child_private (widget_class, GsOverviewPage, scrolledwindow_overview);
- 	gtk_widget_class_bind_template_child_private (widget_class, GsOverviewPage, stack_overview);
--	gtk_widget_class_bind_template_child_private (widget_class, GsOverviewPage, categories_expander_button_down);
--	gtk_widget_class_bind_template_child_private (widget_class, GsOverviewPage, categories_expander_button_up);
--	gtk_widget_class_bind_template_child_private (widget_class, GsOverviewPage, categories_expander_box);
--	gtk_widget_class_bind_template_child_private (widget_class, GsOverviewPage, categories_more);
- }
- 
- GsOverviewPage *
-diff --git a/src/gs-overview-page.ui b/src/gs-overview-page.ui
-index 21a19952..d3b82658 100644
---- a/src/gs-overview-page.ui
-+++ b/src/gs-overview-page.ui
-@@ -139,90 +139,19 @@
-                           </object>
-                         </child>
-                         <child>
--                          <object class="GtkRevealer" id="categories_more">
--                            <property name="visible">True</property>
--                            <property name="transition-type">slide-up</property>
--                            <child>
--                              <object class="GtkFlowBox" id="flowbox_categories2">
--                                <property name="visible">True</property>
--                                <property name="margin-bottom">24</property>
--                                <property name="row_spacing">14</property>
--                                <property name="column_spacing">14</property>
--                                <property name="homogeneous">True</property>
--                                <property name="max_children_per_line">3</property>
--                                <property name="selection_mode">none</property>
--                                <accessibility>
--                                  <relation target="category_heading" type="labelled-by"/>
--                                </accessibility>
--                              </object>
--                            </child>
--                          </object>
--                        </child>
--                        <child>
--                          <object class="GtkBox" id="categories_expander_box">
--                            <property name="visible">True</property>
--                            <property name="vexpand">False</property>
--                            <property name="orientation">horizontal</property>
--                            <property name="margin_start">24</property>
--                            <property name="margin_end">24</property>
--                            <property name="margin-bottom">12</property>
--                            <child>
--                              <object class="GtkSeparator" id="categories_expander_lsep">
--                                <property name="visible">True</property>
--                                <property name="orientation">horizontal</property>
--                                <property name="hexpand">True</property>
--                                <property name="valign">center</property>
--                              </object>
--                            </child>
--                            <child>
--                              <object class="GtkButton" id="categories_expander_button_down">
--                                <property name="visible">True</property>
--                                <property name="can_focus">True</property>
--                                <property name="margin-start">9</property>
--                                <property name="margin-end">9</property>
--                                <property name="valign">center</property>
--                                <property name="relief">none</property>
--                                <style>
--                                  <class name="round-button"/>
--                                </style>
--                                <child>
--                                  <object class="GtkImage" id="categories_expander_image_down">
--                                    <property name="visible">True</property>
--                                    <property name="icon_name">pan-down-symbolic</property>
--                                    <property name="icon_size">1</property>
--                                  </object>
--                                </child>
--                              </object>
--                            </child>
--                            <child>
--                              <object class="GtkButton" id="categories_expander_button_up">
--                                <property name="visible">False</property>
--                                <property name="can_focus">True</property>
--                                <property name="margin-start">9</property>
--                                <property name="margin-end">9</property>
--                                <property name="valign">center</property>
--                                <property name="relief">none</property>
--                                <style>
--                                  <class name="round-button"/>
--                                </style>
--                                <child>
--                                  <object class="GtkImage" id="categories_expander_image_up">
--                                    <property name="visible">True</property>
--                                    <property name="icon_name">pan-up-symbolic</property>
--                                    <property name="icon_size">1</property>
--                                  </object>
--                                </child>
--                              </object>
--                            </child>
--                            <child>
--                              <object class="GtkSeparator" id="categories_expander_rsep">
--                                <property name="visible">True</property>
--                                <property name="orientation">horizontal</property>
--                                <property name="hexpand">True</property>
--                                <property name="valign">center</property>
--                              </object>
--                            </child>
--                          </object>
-+			  <object class="GtkFlowBox" id="flowbox_categories2">
-+			    <property name="visible">True</property>
-+			    <property name="can_focus">False</property>
-+			    <property name="margin-bottom">24</property>
-+			    <property name="row_spacing">14</property>
-+			    <property name="column_spacing">14</property>
-+			    <property name="homogeneous">True</property>
-+			    <property name="max_children_per_line">3</property>
-+			    <property name="selection_mode">none</property>
-+			    <accessibility>
-+			      <relation target="category_heading" type="labelled-by"/>
-+			    </accessibility>
-+			  </object>
-                         </child>
- 
-                         <child>
 diff --git a/src/gs-prefs-dialog.ui b/src/gs-prefs-dialog.ui
 index bdf989c0..7b41ceb1 100644
 --- a/src/gs-prefs-dialog.ui
@@ -1519,16 +1311,16 @@ index bdf989c0..7b41ceb1 100644
              <style>
                <class name="title"/>
 diff --git a/src/gs-star-widget.c b/src/gs-star-widget.c
-index 105fb2c6..b55ffa44 100644
+index 091f1433..eee157ed 100644
 --- a/src/gs-star-widget.c
 +++ b/src/gs-star-widget.c
-@@ -114,6 +114,9 @@ gs_star_widget_refresh (GsStarWidget *star)
+@@ -107,6 +107,9 @@ gs_star_widget_refresh (GsStarWidget *star)
  					     "star-enabled" : "star-disabled");
  		gtk_widget_set_visible (w, TRUE);
  		gtk_container_add (GTK_CONTAINER (priv->box1), w);
 +		if (priv->rating == G_MAXINT) {
-+			gtk_widget_set_visible(w, FALSE);
-+		}
++                       gtk_widget_set_visible(w, FALSE);
++                }
  	}
  }
  
