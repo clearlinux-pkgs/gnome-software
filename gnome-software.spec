@@ -4,7 +4,7 @@
 #
 Name     : gnome-software
 Version  : 3.34.2
-Release  : 47
+Release  : 48
 URL      : https://download.gnome.org/sources/gnome-software/3.34/gnome-software-3.34.2.tar.xz
 Source0  : https://download.gnome.org/sources/gnome-software/3.34/gnome-software-3.34.2.tar.xz
 Source1  : http://localhost/cgit/projects/clr-software-icons/snapshot/clr-software-icons-1.tar.gz
@@ -27,6 +27,7 @@ BuildRequires : clr-bundle-screenshots
 BuildRequires : docbook-xml
 BuildRequires : gnome-online-accounts-dev
 BuildRequires : gtk-doc
+BuildRequires : liboauth-dev
 BuildRequires : libxslt-bin
 BuildRequires : pkgconfig(appstream-glib)
 BuildRequires : pkgconfig(flatpak)
@@ -39,9 +40,11 @@ BuildRequires : pkgconfig(gudev-1.0)
 BuildRequires : pkgconfig(json-glib-1.0)
 BuildRequires : pkgconfig(libsecret-1)
 BuildRequires : pkgconfig(libsoup-2.4)
+BuildRequires : pkgconfig(oauth)
 BuildRequires : pkgconfig(packagekit-glib2)
 BuildRequires : pkgconfig(polkit-gobject-1)
 BuildRequires : pkgconfig(sqlite3)
+BuildRequires : pkgconfig(valgrind)
 BuildRequires : pkgconfig(xmlb)
 BuildRequires : source-highlight
 BuildRequires : valgrind-dev
@@ -150,7 +153,7 @@ export http_proxy=http://127.0.0.1:9/
 export https_proxy=http://127.0.0.1:9/
 export no_proxy=localhost,127.0.0.1,0.0.0.0
 export LANG=C.UTF-8
-export SOURCE_DATE_EPOCH=1574699339
+export SOURCE_DATE_EPOCH=1576602779
 export GCC_IGNORE_WERROR=1
 export CFLAGS="$CFLAGS -fno-lto "
 export FCFLAGS="$CFLAGS -fno-lto "
