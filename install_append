@@ -1,1 +1,0 @@
-install -m 0644 clearlinux/data/icons/hicolor/scalable/org.clearlinux.Software.svg %{buildroot}/usr/share/icons/hicolor/scalable/apps/org.gnome.Software.svg
