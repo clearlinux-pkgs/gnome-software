@@ -4,10 +4,9 @@
 #
 Name     : gnome-software
 Version  : 3.34.2
-Release  : 48
+Release  : 49
 URL      : https://download.gnome.org/sources/gnome-software/3.34/gnome-software-3.34.2.tar.xz
 Source0  : https://download.gnome.org/sources/gnome-software/3.34/gnome-software-3.34.2.tar.xz
-Source1  : http://localhost/cgit/projects/clr-software-icons/snapshot/clr-software-icons-1.tar.gz
 Summary  : GNOME Software is a software center for GNOME
 Group    : Development/Tools
 License  : GPL-2.0
@@ -27,7 +26,6 @@ BuildRequires : clr-bundle-screenshots
 BuildRequires : docbook-xml
 BuildRequires : gnome-online-accounts-dev
 BuildRequires : gtk-doc
-BuildRequires : liboauth-dev
 BuildRequires : libxslt-bin
 BuildRequires : pkgconfig(appstream-glib)
 BuildRequires : pkgconfig(flatpak)
@@ -40,12 +38,9 @@ BuildRequires : pkgconfig(gudev-1.0)
 BuildRequires : pkgconfig(json-glib-1.0)
 BuildRequires : pkgconfig(libsecret-1)
 BuildRequires : pkgconfig(libsoup-2.4)
-BuildRequires : pkgconfig(oauth)
 BuildRequires : pkgconfig(packagekit-glib2)
 BuildRequires : pkgconfig(polkit-gobject-1)
 BuildRequires : pkgconfig(sqlite3)
-BuildRequires : pkgconfig(valgrind)
-BuildRequires : pkgconfig(xmlb)
 BuildRequires : source-highlight
 BuildRequires : valgrind-dev
 BuildRequires : zstd-dev
@@ -141,11 +136,7 @@ man components for the gnome-software package.
 
 %prep
 %setup -q -n gnome-software-3.34.2
-cd %{_builddir}
-tar xf %{_sourcedir}/clr-software-icons-1.tar.gz
 cd %{_builddir}/gnome-software-3.34.2
-mkdir -p clearlinux
-cp -r %{_builddir}/clr-software-icons-1/* %{_builddir}/gnome-software-3.34.2/clearlinux
 %patch1 -p1
 
 %build
@@ -153,23 +144,27 @@ export http_proxy=http://127.0.0.1:9/
 export https_proxy=http://127.0.0.1:9/
 export no_proxy=localhost,127.0.0.1,0.0.0.0
 export LANG=C.UTF-8
-export SOURCE_DATE_EPOCH=1576602779
+export SOURCE_DATE_EPOCH=1586389996
 export GCC_IGNORE_WERROR=1
 export CFLAGS="$CFLAGS -fno-lto "
-export FCFLAGS="$CFLAGS -fno-lto "
-export FFLAGS="$CFLAGS -fno-lto "
+export FCFLAGS="$FFLAGS -fno-lto "
+export FFLAGS="$FFLAGS -fno-lto "
 export CXXFLAGS="$CXXFLAGS -fno-lto "
 CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" meson --libdir=lib64 --prefix=/usr --buildtype=plain -Denable-packagekit=false -Denable-ubuntuone=false -Denable-ubuntu-reviews=false -Denable-snap=false -Denable-gtk-doc=false  -Dpackagekit=false -Dfwupd=false  builddir
 ninja -v -C builddir
+
+%check
+export LANG=C.UTF-8
+export http_proxy=http://127.0.0.1:9/
+export https_proxy=http://127.0.0.1:9/
+export no_proxy=localhost,127.0.0.1,0.0.0.0
+meson test -C builddir || :
 
 %install
 mkdir -p %{buildroot}/usr/share/package-licenses/gnome-software
 cp %{_builddir}/gnome-software-3.34.2/COPYING %{buildroot}/usr/share/package-licenses/gnome-software/4cc77b90af91e615a64ae04893fdffa7939db84c
 DESTDIR=%{buildroot} ninja -C builddir install
 %find_lang gnome-software
-## install_append content
-install -m 0644 clearlinux/data/icons/hicolor/scalable/org.clearlinux.Software.svg %{buildroot}/usr/share/icons/hicolor/scalable/apps/org.gnome.Software.svg
-## install_append end
 
 %files
 %defattr(-,root,root,-)
