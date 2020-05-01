@@ -12,4 +12,3 @@ polkit-gobject-1
 fwupd
 flatpak
 gudev-1.0
-packagekit-glib2
