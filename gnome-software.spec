@@ -4,7 +4,7 @@
 #
 Name     : gnome-software
 Version  : 3.34.2
-Release  : 51
+Release  : 52
 URL      : https://download.gnome.org/sources/gnome-software/3.34/gnome-software-3.34.2.tar.xz
 Source0  : https://download.gnome.org/sources/gnome-software/3.34/gnome-software-3.34.2.tar.xz
 Summary  : GNOME Software is a software center for GNOME
@@ -143,7 +143,7 @@ export http_proxy=http://127.0.0.1:9/
 export https_proxy=http://127.0.0.1:9/
 export no_proxy=localhost,127.0.0.1,0.0.0.0
 export LANG=C.UTF-8
-export SOURCE_DATE_EPOCH=1588349422
+export SOURCE_DATE_EPOCH=1615596152
 export GCC_IGNORE_WERROR=1
 export CFLAGS="$CFLAGS -fno-lto "
 export FCFLAGS="$FFLAGS -fno-lto "
