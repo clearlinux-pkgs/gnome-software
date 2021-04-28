@@ -1,14 +1,17 @@
 # This file contains additional pkgconfig build requirements that did
 # not get picked up automatically. One name per line, no whitespace.
+appstream
 appstream-glib
+flatpak
+gnome-desktop-3.0
+goa-1.0
+gspell-1
 gtk+-3.0
+gudev-1.0
 json-glib-1.0
+libhandy-1
 libsecret-1
 libsoup-2.4
-sqlite3
-gnome-desktop-3.0
-gspell-1
 polkit-gobject-1
-fwupd
-flatpak
-gudev-1.0
+sqlite3
+xmlb

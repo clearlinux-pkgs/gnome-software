@@ -1,4 +1,4 @@
-libappstream-glib.so.8
+libappstream.so.4
 libatk-1.0.so.0
 libc.so.6
 libcairo.so.2
@@ -13,8 +13,11 @@ libgobject-2.0.so.0
 libgspell-1.so.2
 libgtk-3.so.0
 libgudev-1.0.so.0
+libhandy-1.so.0
 libjson-glib-1.0.so.0
 libm.so.6
+libostree-1.so.1
+libpango-1.0.so.0
 libpolkit-gobject-1.so.0
 libpthread.so.0
 libsoup-2.4.so.1

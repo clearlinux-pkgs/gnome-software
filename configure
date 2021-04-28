@@ -1,1 +1,8 @@
--Denable-packagekit=false -Denable-ubuntuone=false -Denable-ubuntu-reviews=false -Denable-snap=false -Denable-gtk-doc=false  -Dpackagekit=false -Dfwupd=false
+-Dfwupd=false
+-Dgtk_doc=false
+-Dmalcontent=false
+-Dpackagekit=false
+-Dpackagekit_autoremove=false
+-Drpm_ostree=false
+-Dsnap=false
+-Dsysprof=disabled

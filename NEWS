@@ -1,33 +1,252 @@
-Version 3.34.2
+Version 40
+~~~~~~~~~~
+Released: 2021-03-19
+
+This is a stable release with the following changes:
+ * Fix handling of invalid or incomplete application icons
+ * Fix the plugin documentation to reflect reality
+ * Fix the Snap plugin to actually load icons
+ * Set download size to 0 after the package is downloaded
+
+Translation updates:
+ * British English
+ * Danish
+ * Greek
+ * Italian
+ * Norwegian Bokmål
+ * Polish
+ * Punjabi
+ * Serbian
+
+Version 40.rc
+~~~~~~~~~~~~~
+Released: 2021-03-12
+
+This is an unstable release with the following changes:
+ * Implement new featured apps carousel.
+ * List of Flatpak repositories is updated when changed using the Flatpak command line tool.
+ * The loading page now shows the full color icon instead of the symbolic one.
+ * Show release date in version history for releases that use the 'date' attribute.
+ * Improved icon handling, including with hiDPI screens.
+ * Fixed a bug in remembering when update notifications were shown.
+ * Build as a dynamic rather than a static library, and rearrange installation paths.
+
+Translation updates:
+ * Basque
+ * Catalan
+ * Croatian
+ * Czech
+ * Dutch
+ * English (United Kingdom)
+ * Finnish
+ * French
+ * Friulian
+ * Galician
+ * German
+ * Hungarian
+ * Indonesian
+ * Kazakh
+ * Korean
+ * Lithuanian
+ * Persian
+ * Portuguese
+ * Portuguese (Brazil)
+ * Romanian
+ * Serbian
+ * Slovenian
+ * Spanish
+ * Swedish
+ * Turkish
+ * Ukrainian
+
+Version 40.beta
+~~~~~~~~~~~~~~~~
+Released: 2021-02-16
+
+This is an unstable release with the following changes:
+  * GNOME Software now uses libappstream instead of libappstream-glib to work
+    with appstream data which provides information about apps and other
+    components.
+  * App details pages show version history information when it's available.
+  * The loading page now shows the full color icon instead of the symbolic one.
+  * UI elements for displaying app add-ons have been tweaked to more closely
+    match the designs.
+  * Installed icons and the badge showing the number of updates available were
+    changed back to blue from green.
+  * The dropdown showing the available sources of an application includes the
+    packaging format (e.g. Flatpak vs RPM).
+  * A bug was fixed that prevented installation of .flatpakref files
+
+* Translation updates:
+ - Catalan
+ - Czech
+ - Galician
+ - Indonesian
+ - Panjabi
+ - Portuguese
+ - Slovenian
+ - Spanish
+ - Swedish
+
+Version 40.alpha
+~~~~~~~~~~~~~~~~
+Released: 2021-01-27
+
+This is the first unstable release for GNOME 40.
+ * Drop libgnome-desktop-3 dependency in favour of gsettings-desktop-schemas
+ * Small updates to how app descriptions and addons are presented on the details
+   page
+ * Fix handling of pending app installations when going online
+ * Better support for dark themes (particularly Adwaita-Dark)
+ * Improvements to how app screenshots are loaded and presented
+ * Hide ‘Launch’ button if an application (for example, Wine) cannot be
+   launched
+ * Make the UI clearer when loading information from flatpakref files
+ * Don’t update app metadata on start when download-updates is disabled
+ * Fix opening the updates list when clicking on an updates notification
+ * Fix state updates when installing flatpak apps or repos which are already
+   installed
+ * Add Ctrl+Q as a keyboard shortcut for closing the window
+ * Rework timing and content of software update notifications
+ * Prevent uninstalled local apps from appearing in the installed apps list
+ * Support installation/uninstallation of addons for flatpak apps
+ * Improve presentation of age ratings for apps
+ * Fix a crash in the updates page
+ * Fix presentation of app permissions for fully sandboxed flatpak apps
+ * Fix deadlock on rpm-ostree systems
+ * Fix presentation of version number changes in right-to-left locales
+ * Error handling improvements for fwupd
+ * Performance improvements for ODRS on startup
+ * Improve presentation of firmware warning messages
+ * XML parsing performance improvements
+ * Automatically remove end-of-life flatpak runtimes
+ * Support updating flatpaks to their new name when they are renamed
+ * Update the GNOME Software icon
+ * Support more search results in the snap store
+
+This release also updates translations:
+ * Basque
+ * Bokmål, Norwegian
+ * Catalan
+ * Chinese (Taiwan)
+ * Czech
+ * Friulian
+ * Galician
+ * German
+ * Greek, Modern (1453-)
+ * Hebrew
+ * Indonesian
+ * Italian
+ * Kabyle
+ * Kazakh
+ * Latvian
+ * Lithuanian
+ * Persian
+ * Portuguese
+ * Portuguese (Brazil)
+ * Romanian
+ * Slovak
+ * Spanish
+ * Turkish
+ * Ukrainian
+ * Vietnamese
+
+Version 3.37.92
+~~~~~~~~~~~~~~~
+Released: 2020-09-01
+
+This is an unstable stable release with the following changes:
+ * Add sysprof support for profiling jobs
+ * Add webflow and basic auth support to flatpak plugin
+ * Coalesce refresh operations where possible
+ * Correctly mark layered rpm-ostree local packages as removable
+ * Fix flatpak bundle installation
+ * Handle invalid snap auth data
+ * Improve flatpak progress reporting for transactions
+ * Improve the heuristic for detecting old-style AppStream override files
+ * Many performance improvements in many areas of the code
+ * Only delete the firmware archive if we downloaded it to the cache
+ * Show a pulsing progress bar if progress is unknown
+ * Support loading appstream files from custom install prefix
+ * Use the runtime fwupd version for the user agent
+
+This release also updates existing translations.
+
+Version 3.36.0
+~~~~~~~~~~~~~~
+Released: 2020-03-11
+
+This is the first stable release for GNOME 3.36.
+
+Version 3.35.92
+~~~~~~~~~~~~~~~
+Released: 2020-03-04
+
+This is an unstable stable release with the following changes:
+ * Fix crash when viewing application details
+ * Fix “thrice daily” check running every 3 days
+ * Improve the appearance of the front page banners
+ * Show the correct upgrade banner contents when a reboot is requried
+
+This release also updates existing translations.
+
+Version 3.35.91
+~~~~~~~~~~~~~~~
+Released: 2020-02-19
+
+This is an unstable stable release with the following changes:
+ * Add an info bar about automatic updates
+ * Avoid rpm-ostree downgrade error when doing distro upgrade
+ * Click on stars to open review dialog in the details view
+ * Fix loading of icons from AppStream YAML
+ * Fix weird font sizes in the batter
+ * Hide any in-app notifications when closing the main window
+ * Integrate better with snapd
+ * Only ignore flatpak estimated progress if >10%
+ * Remove color stripes on categories in the Explore page
+ * Remove support for Shell extensions
+ * Remove webapp support
+ * Reset star rating when loading an unrated app
+ * Sort applications using locale based algorithms
+ * Stop snaps from being automatically updated
+
+This release also adds and updates existing translations.
+
+Version 3.35.2
 ~~~~~~~~~~~~~~
 Released: 2019-11-25
 
-This is a stable release with the following changes:
+This is an unstable stable release with the following changes:
+ * Add missing OARS content rating descriptions
+ * Add new plugin for restricting access to apps
+ * Avoid a UI crash when switching modes
+ * Build libmalcontent dependency on Fedora CI
+ * Correctly distinguish empty content ratings from missing ones
+ * Correctly set the application state if autoupdate is in progress
  * Do not show a crazy error when installing packages
  * Do not show non-applications in the installed panel
  * Download Flatpak updates in the correct installation
- * Fix a potential threading crash when using flatpak
- * Fix a small memory leaks
+ * Expose snap channels as app alternates
+ * Fix a crash on 32-bit systems
+ * Fix langpacks autoinstall on Fedora SilverBlue
+ * Fix manual detach when updating removable device firmware
+ * Fix third party repo enabling not working
+ * Hide add/remove shortcut buttons for parentally filtered apps
+ * Improve some front page banners
+ * Invalidate caches when adding or removing remotes
+ * Make flatpak more thread-safe to fix some crashes
+ * Match the exact ID when refining a wildcard
+ * Only set the app row's buttons as destructive when they remove an app
+ * Remove hardcoded-featured plugin
+ * Remove the app folder functionality as this is now built-in to the shell
+ * Remove the banner editor as this is now an app on it's own
+ * Rework age ratings handling to avoid hard-coded list
  * Set the shell extension origin correctly in all cases
- * Speed up flatpak loading in some situations
+ * Show the channel for snaps
+ * Speed up the flatpak plugin in some situations
+ * Use plugin API to launch apps from install notification.
 
-This release also updates existing translations.
-
-Version 3.34.1
-~~~~~~~~~~~~~~
-Released: 2019-10-07
-
-This is a stable release with the following changes:
- * Fix firmware updates where the device needed a manual detach
- * Fix installing webapps
- * Fix signal blocking for search
- * Fix third party repo enabling
- * Hide the shortcut buttons for parentally filtered apps
- * Make disabled flatpak remote enabling work
- * Show snap channels as app alternates
- * Show the correct application when clicking from the GNOME Shell menu
-
-This release also updates existing translations.
+This release also adds and updates existing translations.
 
 Version 3.34.0
 ~~~~~~~~~~~~~~
