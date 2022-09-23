@@ -4,7 +4,7 @@
 #
 Name     : gnome-software
 Version  : 43.0
-Release  : 64
+Release  : 65
 URL      : https://download.gnome.org/sources/gnome-software/43/gnome-software-43.0.tar.xz
 Source0  : https://download.gnome.org/sources/gnome-software/43/gnome-software-43.0.tar.xz
 Summary  : No detailed summary available
