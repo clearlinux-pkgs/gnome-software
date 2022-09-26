@@ -7,4 +7,3 @@ source-highlight
 valgrind-dev
 zstd-dev
 libsoup-dev
-compat-libsoup-soname-24-dev

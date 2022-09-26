@@ -6,3 +6,6 @@
 -Drpm_ostree=false
 -Dsnap=false
 -Dsysprof=disabled
+-Dhardcoded_foss_webapps=false
+-Dhardcoded_proprietary_webapps=false
+-Dwebapps=false
