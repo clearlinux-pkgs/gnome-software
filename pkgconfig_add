@@ -11,7 +11,6 @@ gudev-1.0
 json-glib-1.0
 libhandy-1
 libsecret-1
-libsoup-2.4
 polkit-gobject-1
 sqlite3
 xmlb

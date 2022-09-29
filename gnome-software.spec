@@ -4,7 +4,7 @@
 #
 Name     : gnome-software
 Version  : 43.0
-Release  : 66
+Release  : 67
 URL      : https://download.gnome.org/sources/gnome-software/43/gnome-software-43.0.tar.xz
 Source0  : https://download.gnome.org/sources/gnome-software/43/gnome-software-43.0.tar.xz
 Summary  : No detailed summary available
@@ -37,7 +37,6 @@ BuildRequires : pkgconfig(json-glib-1.0)
 BuildRequires : pkgconfig(libadwaita-1)
 BuildRequires : pkgconfig(libhandy-1)
 BuildRequires : pkgconfig(libsecret-1)
-BuildRequires : pkgconfig(libsoup-2.4)
 BuildRequires : pkgconfig(polkit-gobject-1)
 BuildRequires : pkgconfig(sqlite3)
 BuildRequires : pkgconfig(xmlb)
@@ -142,7 +141,7 @@ export http_proxy=http://127.0.0.1:9/
 export https_proxy=http://127.0.0.1:9/
 export no_proxy=localhost,127.0.0.1,0.0.0.0
 export LANG=C.UTF-8
-export SOURCE_DATE_EPOCH=1664167542
+export SOURCE_DATE_EPOCH=1664430033
 export GCC_IGNORE_WERROR=1
 export CFLAGS="$CFLAGS -fno-lto "
 export FCFLAGS="$FFLAGS -fno-lto "
