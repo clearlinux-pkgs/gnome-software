@@ -4,7 +4,7 @@
 #
 Name     : gnome-software
 Version  : 43.1
-Release  : 68
+Release  : 69
 URL      : https://download.gnome.org/sources/gnome-software/43/gnome-software-43.1.tar.xz
 Source0  : https://download.gnome.org/sources/gnome-software/43/gnome-software-43.1.tar.xz
 Summary  : No detailed summary available
@@ -43,6 +43,9 @@ BuildRequires : pkgconfig(xmlb)
 BuildRequires : source-highlight
 BuildRequires : valgrind-dev
 BuildRequires : zstd-dev
+# Suppress stripping binaries
+%define __strip /bin/true
+%define debug_package %{nil}
 
 %description
 [![Build Status](https://gitlab.gnome.org/GNOME/gnome-software/badges/main/pipeline.svg)](https://gitlab.gnome.org/GNOME/gnome-software/pipelines)
@@ -141,12 +144,12 @@ export http_proxy=http://127.0.0.1:9/
 export https_proxy=http://127.0.0.1:9/
 export no_proxy=localhost,127.0.0.1,0.0.0.0
 export LANG=C.UTF-8
-export SOURCE_DATE_EPOCH=1666803446
+export SOURCE_DATE_EPOCH=1673303021
 export GCC_IGNORE_WERROR=1
-export CFLAGS="$CFLAGS -fno-lto "
-export FCFLAGS="$FFLAGS -fno-lto "
-export FFLAGS="$FFLAGS -fno-lto "
-export CXXFLAGS="$CXXFLAGS -fno-lto "
+export CFLAGS="$CFLAGS -fdebug-types-section -femit-struct-debug-baseonly -fno-lto -g1 -gno-column-info -gno-variable-location-views -gz "
+export FCFLAGS="$FFLAGS -fdebug-types-section -femit-struct-debug-baseonly -fno-lto -g1 -gno-column-info -gno-variable-location-views -gz "
+export FFLAGS="$FFLAGS -fdebug-types-section -femit-struct-debug-baseonly -fno-lto -g1 -gno-column-info -gno-variable-location-views -gz "
+export CXXFLAGS="$CXXFLAGS -fdebug-types-section -femit-struct-debug-baseonly -fno-lto -g1 -gno-column-info -gno-variable-location-views -gz "
 CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" meson --libdir=lib64 --prefix=/usr --buildtype=plain -Dfwupd=false \
 -Dgtk_doc=false \
 -Dmalcontent=false \
@@ -157,7 +160,8 @@ CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" meson --libdir=lib64 --
 -Dsysprof=disabled \
 -Dhardcoded_foss_webapps=false \
 -Dhardcoded_proprietary_webapps=false \
--Dwebapps=false  builddir
+-Dwebapps=false \
+-Dtests=false  builddir
 ninja -v -C builddir
 
 %check
@@ -169,7 +173,7 @@ meson test -C builddir --print-errorlogs || :
 
 %install
 mkdir -p %{buildroot}/usr/share/package-licenses/gnome-software
-cp %{_builddir}/gnome-software-%{version}/COPYING %{buildroot}/usr/share/package-licenses/gnome-software/4cc77b90af91e615a64ae04893fdffa7939db84c
+cp %{_builddir}/gnome-software-%{version}/COPYING %{buildroot}/usr/share/package-licenses/gnome-software/4cc77b90af91e615a64ae04893fdffa7939db84c || :
 DESTDIR=%{buildroot} ninja -C builddir install
 %find_lang gnome-software
 

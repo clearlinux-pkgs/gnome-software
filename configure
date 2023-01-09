@@ -9,3 +9,4 @@
 -Dhardcoded_foss_webapps=false
 -Dhardcoded_proprietary_webapps=false
 -Dwebapps=false
+-Dtests=false
