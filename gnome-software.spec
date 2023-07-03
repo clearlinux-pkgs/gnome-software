@@ -4,10 +4,10 @@
 # Using build pattern: meson
 #
 Name     : gnome-software
-Version  : 44.2
-Release  : 76
-URL      : https://download.gnome.org/sources/gnome-software/44/gnome-software-44.2.tar.xz
-Source0  : https://download.gnome.org/sources/gnome-software/44/gnome-software-44.2.tar.xz
+Version  : 44.3
+Release  : 77
+URL      : https://download.gnome.org/sources/gnome-software/44/gnome-software-44.3.tar.xz
+Source0  : https://download.gnome.org/sources/gnome-software/44/gnome-software-44.3.tar.xz
 Summary  : No detailed summary available
 Group    : Development/Tools
 License  : GPL-2.0
@@ -137,10 +137,10 @@ man components for the gnome-software package.
 
 
 %prep
-%setup -q -n gnome-software-44.2
-cd %{_builddir}/gnome-software-44.2
+%setup -q -n gnome-software-44.3
+cd %{_builddir}/gnome-software-44.3
 pushd ..
-cp -a gnome-software-44.2 buildavx2
+cp -a gnome-software-44.3 buildavx2
 popd
 
 %build
@@ -148,7 +148,7 @@ export http_proxy=http://127.0.0.1:9/
 export https_proxy=http://127.0.0.1:9/
 export no_proxy=localhost,127.0.0.1,0.0.0.0
 export LANG=C.UTF-8
-export SOURCE_DATE_EPOCH=1685511730
+export SOURCE_DATE_EPOCH=1688409043
 export GCC_IGNORE_WERROR=1
 export CFLAGS="$CFLAGS -fdebug-types-section -femit-struct-debug-baseonly -fno-lto -g1 -gno-column-info -gno-variable-location-views -gz=zstd "
 export FCFLAGS="$FFLAGS -fdebug-types-section -femit-struct-debug-baseonly -fno-lto -g1 -gno-column-info -gno-variable-location-views -gz=zstd "
