@@ -4,10 +4,10 @@
 # Using build pattern: meson
 #
 Name     : gnome-software
-Version  : 44.4
-Release  : 78
-URL      : https://download.gnome.org/sources/gnome-software/44/gnome-software-44.4.tar.xz
-Source0  : https://download.gnome.org/sources/gnome-software/44/gnome-software-44.4.tar.xz
+Version  : 45.0
+Release  : 79
+URL      : https://download.gnome.org/sources/gnome-software/45/gnome-software-45.0.tar.xz
+Source0  : https://download.gnome.org/sources/gnome-software/45/gnome-software-45.0.tar.xz
 Summary  : No detailed summary available
 Group    : Development/Tools
 License  : GPL-2.0
@@ -137,10 +137,10 @@ man components for the gnome-software package.
 
 
 %prep
-%setup -q -n gnome-software-44.4
-cd %{_builddir}/gnome-software-44.4
+%setup -q -n gnome-software-45.0
+cd %{_builddir}/gnome-software-45.0
 pushd ..
-cp -a gnome-software-44.4 buildavx2
+cp -a gnome-software-45.0 buildavx2
 popd
 
 %build
@@ -148,7 +148,7 @@ export http_proxy=http://127.0.0.1:9/
 export https_proxy=http://127.0.0.1:9/
 export no_proxy=localhost,127.0.0.1,0.0.0.0
 export LANG=C.UTF-8
-export SOURCE_DATE_EPOCH=1691173566
+export SOURCE_DATE_EPOCH=1695683643
 export GCC_IGNORE_WERROR=1
 export CFLAGS="$CFLAGS -fdebug-types-section -femit-struct-debug-baseonly -fno-lto -g1 -gno-column-info -gno-variable-location-views -gz=zstd "
 export FCFLAGS="$FFLAGS -fdebug-types-section -femit-struct-debug-baseonly -fno-lto -g1 -gno-column-info -gno-variable-location-views -gz=zstd "
@@ -259,6 +259,7 @@ DESTDIR=%{buildroot} ninja -C builddir install
 /usr/include/gnome-software/gs-plugin.h
 /usr/include/gnome-software/gs-profiler.h
 /usr/include/gnome-software/gs-remote-icon.h
+/usr/include/gnome-software/gs-rewrite-resources.h
 /usr/include/gnome-software/gs-test.h
 /usr/include/gnome-software/gs-utils.h
 /usr/include/gnome-software/gs-worker-thread.h
@@ -285,7 +286,6 @@ DESTDIR=%{buildroot} ninja -C builddir install
 /V3/usr/lib64/gnome-software/plugins-20/libgs_plugin_provenance-license.so
 /V3/usr/lib64/gnome-software/plugins-20/libgs_plugin_provenance.so
 /V3/usr/lib64/gnome-software/plugins-20/libgs_plugin_repos.so
-/V3/usr/lib64/gnome-software/plugins-20/libgs_plugin_rewrite-resource.so
 /usr/lib64/gnome-software/libgnomesoftware.so
 /usr/lib64/gnome-software/libgnomesoftware.so.20
 /usr/lib64/gnome-software/plugins-20/libgs_plugin_appstream.so
@@ -302,7 +302,6 @@ DESTDIR=%{buildroot} ninja -C builddir install
 /usr/lib64/gnome-software/plugins-20/libgs_plugin_provenance-license.so
 /usr/lib64/gnome-software/plugins-20/libgs_plugin_provenance.so
 /usr/lib64/gnome-software/plugins-20/libgs_plugin_repos.so
-/usr/lib64/gnome-software/plugins-20/libgs_plugin_rewrite-resource.so
 
 %files libexec
 %defattr(-,root,root,-)
