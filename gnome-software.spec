@@ -7,7 +7,7 @@
 #
 Name     : gnome-software
 Version  : 45.3
-Release  : 83
+Release  : 84
 URL      : https://download.gnome.org/sources/gnome-software/45/gnome-software-45.3.tar.xz
 Source0  : https://download.gnome.org/sources/gnome-software/45/gnome-software-45.3.tar.xz
 Summary  : No detailed summary available
