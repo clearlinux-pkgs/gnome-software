@@ -1,47 +1,120 @@
-Version 45.3
+Version 46.0
 ~~~~~~~~~~~~
-Released: 2024-01-05
+Released: 2024-03-15
 
 This is a stable release with the following changes:
- * Recognize links in package update descriptions
- * Increase speed of load of the category pages
- * Fix deadlock when cancelling app update
+ * Improvements for screen readers
+ * Stop ‘loading updates’ in a loop on Debian
 
 This release also updates translations:
- * Chinese (Taiwan) (Andre Klapper)
+ * Czech (Daniel Rusek)
+ * Danish (Alan Mortensen)
+ * Finnish (Jiri Grönroos)
+ * French (Vincent Chatelain)
+ * Galician (Fran Dieguez)
+ * Georgian (Ekaterine Papava)
+ * Hungarian (Balázs Úr)
+ * Indonesian (Kukuh Syafaat)
+ * Korean (Seong-ho Cho)
+ * Latvian (Rūdolfs Mazurs)
  * Persian (Danial Behzadi)
+ * Polish (Piotr Drąg)
+ * Portuguese (Brazil) (Juliano de Souza Camargo)
+ * Russian (Artur S0)
+ * Swedish (Anders Jonsson)
+ * Thai (Aefgh Threenine)
+ * Turkish (Emin Tufan Çetin)
 
-Version 45.2
-~~~~~~~~~~~~
-Released: 2023-12-01
+Version 46~rc
+~~~~~~~~~~~~~
+Released: 2024-03-01
 
-This is a stable release with translations update:
- * Catalan (Jordi Mas)
+This is an unstable release with the following changes:
+ * Various UI text improvements
+ * Fix launch of some apps
+ * Fix invalid app state after it's uninstalled
+ * Fix read of app description text
+ * Do not ask to reboot after failed firmware update
+
+This release also updates translations:
+ * Basque (Asier Sarasua Garmendia)
+ * Belarusian (Vasil Pupkin)
+ * Bokmål, Norwegian (Brage Fuglseth)
+ * Catalan (Jordi Mas, Quique Serrano)
+ * Chinese (China) (Boyuan Yang)
+ * Czech (Daniel Rusek)
+ * Dutch (Nathan Follens)
+ * English (United Kingdom) (Andi Chandler)
+ * Galician (Fran Dieguez)
+ * Georgian (Ekaterine Papava)
+ * German (Jürgen Benvenuti, Philipp Kiemle)
+ * Hebrew (Yaron Shahrabani)
+ * Indonesian (Kukuh Syafaat)
+ * Kazakh (Baurzhan Muftakhidinov)
+ * Latvian (Rūdolfs Mazurs)
+ * Lithuanian (Aurimas Černius)
+ * Occitan (post 1500) (Quentin PAGÈS)
+ * Persian (Danial Behzadi)
+ * Russian (Artur S0)
+ * Slovenian (Matej Urbančič)
+ * Spanish (Daniel Mustieles)
+ * Thai (Aefgh Threenine)
+ * Turkish (Sabri Ünal)
+ * Ukrainian (Yuri Chornoivan)
+
+Version 46~beta
+~~~~~~~~~~~~~~~
+Released: 2024-02-09
+
+This is an unstable release with the following changes:
+ * Show feedback for all conditions that pause automatic updates
+ * Various UI improvements and move to new libadwaita widgets
+ * Fix loading OS AppStream catalog data if it is available as YAML
+ * Add openSUSE Leap distro upgrade plugin
+
+This release also updates translations:
+ * Basque (Asier Sarasua Garmendia)
+ * Belarusian (Vasil Pupkin)
+ * Czech (Daniel Rusek)
+ * Galician (Fran Dieguez)
+ * Hebrew (Yosef Or Boczko)
+ * Persian (Danial Behzadi)
+ * Portuguese (Brazil) (Juliano de Souza Camargo)
+ * Russian (Artur S0)
+ * Turkish (Sabri Ünal)
+
+Version 46~alpha
+~~~~~~~~~~~~~~~~
+Released: 2024-01-05
+
+This is an unstable release with the following changes:
+ * Recognize links in package update descriptions
+ * Expose package names discreetly in the UI
+ * Increase speed of load of the category pages
+ * Improve search match with multiple words
+ * Recognize verified apps by Flathub
+ * Correct message when installing firmware updates
+ * Improve application safety checks
+ * Improve update preferences dialog
+ * Fix deadlock when cancelling app update
+ * Support user installation of local flatpak files
+ * Fix apps appearing unsorted and without tiles in category page
+
+This release also updates translations:
+ * Basque (Asier Sarasua Garmendia)
+ * Chinese (China) (Boyuan Yang)
+ * Chinese (Taiwan) (Andre Klapper)
  * Czech (Daniel Rusek)
  * Friulian (Fabio Tomat)
  * Georgian (Ekaterine Papava)
- * Russian (Artur S0)
- * Vietnamese (Ngọc Quân Trần)
-
-Version 45.1
-~~~~~~~~~~~~
-Released: 2023-10-20
-
-This is a stable release with the following changes:
- * Various styling fixes
- * Report PackageKit GPG-related errors in the GUI
- * Flatpak permission checks improvements
- * Optimize loading of the details page
-
-This release also updates translations:
- * Catalan (Jordi Mas)
- * Chinese (Taiwan) (Cheng-Chia Tseng)
- * English (United Kingdom) (Bruce Cowan)
- * Esperanto (Kristjan SCHMIDT)
- * French (Irénée THIRION)
- * Friulian (Fabio Tomat)
+ * German (Jürgen Benvenuti)
+ * Hebrew (Yosef Or Boczko)
+ * Persian (Danial Behzadi)
  * Romanian (Florentina Mușat)
- * Turkish (Sabri Ünal)
+ * Russian (Artur S0)
+ * Turkish (Emin Tufan Çetin, Sabri Ünal)
+ * Ukrainian (Yuri Chornoivan)
+ * Vietnamese (Ngọc Quân Trần)
 
 Version 45.0
 ~~~~~~~~~~~~
