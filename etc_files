@@ -1,0 +1,6 @@
+/etc/:
+/etc/xdg/autostart:
+/etc/xdg:
+autostart
+org.gnome.Software.desktop
+xdg
