@@ -7,7 +7,7 @@
 #
 Name     : gnome-software
 Version  : 46.0
-Release  : 85
+Release  : 86
 URL      : https://download.gnome.org/sources/gnome-software/46/gnome-software-46.0.tar.xz
 Source0  : https://download.gnome.org/sources/gnome-software/46/gnome-software-46.0.tar.xz
 Summary  : No detailed summary available
