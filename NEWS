@@ -1,59 +1,128 @@
-Version 47.4
+Version 48.0
 ~~~~~~~~~~~~
-Released: 2025-01-14
+Released: 2025-03-14
 
 This is a stable release with the following changes:
+ * Correctly show update detail text not provided in markdown
+
+This release also updates translations:
+ * Basque (Asier Saratsua Garmendia)
+ * Belarusian (Vasil Pupkin)
+ * Bokmål, Norwegian (Brage Fuglseth)
+ * Catalan (Jordi Mas i Hernandez, Francesc Busquets)
+ * Danish (Alan Mortensen)
+ * Filipino (Iverson Briones)
+ * Hungarian (Balázs Úr)
+ * Indonesian (Andika Triwidada)
+ * Nepali (Pawan Chitrakar)
+ * Panjabi (A S Alam)
+ * Polish (Piotr Drąg)
+ * Romanian (Antonio Marin)
+ * Russian (Artur S0)
+ * Spanish (Daniel Mustieles)
+
+Version 48~rc
+~~~~~~~~~~~~~
+Released: 2025-02-28
+
+This is an unstable release with the following changes:
+ * Minor interface improvements on the updates page
+ * Various minor performance improvements
+ * Improve error handling for app launches and distribution upgrades
+ * Fix a crash on the app review dialog
+ * Fix version checks preventing some firmware updates when historical updates are also listed
+ * Fix a crash when copying error details
+ * Minor interface improvements to search
+ * Improvements to flatpak permissions checking for D-Bus
+
+This release also updates translations:
+ * Bulgarian (twlvnn kraftwerk)
+ * Catalan (Jordi Mas)
+ * Chinese (China) (Luming Zh)
+ * Chinese (Taiwan) (Cheng-Chia Tseng)
+ * Czech (Daniel Rusek)
+ * Finnish (Jiri Grönroos)
+ * French (Vincent Chatelain)
+ * Galician (Fran Dieguez)
+ * Georgian (Ekaterine Papava)
+ * Hebrew (Yaron Shahrabani)
+ * Korean (Seong-ho Cho)
+ * Lithuanian (Aurimas Černius)
+ * Persian (Danial Behzadi)
+ * Portuguese (Hugo Carvalho)
+ * Portuguese (Brazil) (Rafael Fontenelle)
+ * Russian (Artur S0)
+ * Slovenian (Martin)
+ * Swedish (Anders Jonsson)
+ * Turkish (Sabri Ünal)
+ * Ukrainian (Yuri Chornoivan)
+
+Version 48~beta
+~~~~~~~~~~~~~~~
+Released: 2025-01-31
+
+This is an unstable release with the following changes:
+ * Support installing flatpaks via a flatpak+https: link
+ * Fix notifying about outdated updates when in power saver mode or offline
+ * Prioritise verified apps in source list
+
+This release also updates translations:
+ * Bulgarian (twlvnn kraftwerk)
+ * Czech (Daniel Rusek)
+ * Russian (Artur S0)
+ * Slovenian (Martin)
+
+Version 48~alpha3
+~~~~~~~~~~~~~~~~~
+Released: 2025-01-14
+
+This is an unstable release with the following changes:
  * Fix downloads of firmware updates
  * Fix the release process
 
-Version 47.3
-~~~~~~~~~~~~
+This release also updates translations:
+ * Belarusian (Vasil Pupkin)
+ * Slovenian (Martin)
+
+Version 48~alpha2
+~~~~~~~~~~~~~~~~~
 Released: 2025-01-04
 
-This is a stable release with the following changes:
- * Fix a crash when cancelling an offline update
+This is an unstable release with the following changes:
+ * Fix the release process
+
+Version 48~alpha
+~~~~~~~~~~~~~~~~
+Released: 2025-01-04
+
+This is an unstable release with the following changes:
+ * Include dependencies in estimated download size
+ * Improve performance when loading updates
+ * Fix interface freeze when upvoting/downvoting reviews
+ * Various minor interface improvements for keyboard navigation and small screens
+ * Fix crash when uninstalling snaps
+ * Add experimental systemd-sysupdate plugin
+ * Warn about microphone permissions if an app has PipeWire access
 
 This release also updates translations:
- * Kabyle (Ziri Sut)
-
-Version 47.2
-~~~~~~~~~~~~
-Released: 2024-11-25
-
-This is a stable release with the following changes:
- * Fix distro upgrade when certain version of PackageKit is used
- * Fix a crash when uninstalling a Snap app
- * Make uninstall dialog adaptive for small screens
- * Prefer Appstream data from swcatalog instead of app-info directories
-
-This release also updates translations:
+ * Belarusian (Vasil Pupkin)
+ * Catalan (Jordi Mas i Hernandez, Jordi Mas)
  * Dutch (Nathan Follens)
  * French (Vincent Chatelain)
  * Friulian (Fabio Tomat)
+ * German (Jürgen Benvenuti)
+ * Hebrew (Yaron Shahrabani)
+ * Kabyle (Athmane MOKRAOUI)
  * Latvian (Rūdolfs Mazurs)
- * Malay (Ahmed Noor Kader Mustajir Md Eusoff)
  * Portuguese (Hugo Carvalho)
  * Portuguese (Brazil) (Rafael Fontenelle)
- * Serbian (Милош Поповић, Марко Костић)
- * Thai (Aefgh Threenine)
-
-Version 47.1
-~~~~~~~~~~~~
-Released: 2024-10-10
-
-This is a stable release with the following changes:
- * Fix crash in snap plugin when launching apps
- * Fix display of versions for packages being installed as part of an update
- * Various minor improvements to the review submission dialog
- * Fix a crash in the DKMS plugin
-
-This release also updates translations:
- * Catalan (Jordi Mas i Hernandez, Jordi Mas)
- * French (Guillaume Bernard)
- * Indonesian (Andika Triwidada)
  * Russian (Artur S0)
+ * Serbian (Марко Костић, Милош Поповић)
  * Slovak (Jose Riha)
+ * Slovenian (Martin)
  * Thai (Aefgh Threenine)
+ * Turkish (Sabri Ünal)
+ * Ukrainian (Yuri Chornoivan)
 
 Version 47.0
 ~~~~~~~~~~~~

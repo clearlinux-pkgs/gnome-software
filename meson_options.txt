@@ -1,4 +1,5 @@
 option('tests', type : 'boolean', value : true, description : 'enable tests')
+option('installed_tests', type : 'boolean', value : false, description : 'enable installed tests')
 option('man', type : 'boolean', value : true, description : 'enable man pages')
 option('packagekit', type : 'boolean', value : true, description : 'enable PackageKit support')
 option('packagekit_autoremove', type : 'boolean', value : false, description : 'autoremove packages in PackageKit')
@@ -16,11 +17,13 @@ option('apt', type : 'boolean', value : false, description : 'enable apt: URL ha
 option('snap', type : 'boolean', value : false, description : 'enable Snap support')
 option('external_appstream', type : 'boolean', value : false, description : 'enable external AppStream support')
 option('gtk_doc', type : 'boolean', value : true, description : 'enable API reference')
-option('hardcoded_curated', type : 'boolean', value : false, description : 'enable installation of default curated apps list')
-option('default_featured_apps', type : 'boolean', value : false, description : 'enable installation of default featured apps list')
+option('hardcoded_curated', type : 'boolean', value : false, description : 'enable installation of default curated apps list (for testing purpose only)')
+option('default_featured_apps', type : 'boolean', value : false, description : 'enable installation of default featured apps list (for testing purpose only)')
 option('mogwai', type : 'boolean', value : false, description : 'enable metered data support using Mogwai')
 option('sysprof', type : 'feature', value : 'auto', description : 'enable sysprof-capture support for profiling')
 option('profile', type : 'string', value : '', description : 'Build with specified application ID')
-option('soup2', type : 'boolean', value : false, description : 'build with libsoup2')
 option('opensuse-distro-upgrade', type : 'boolean', value : false, description : 'enable opensuse-distro-upgrade support')
 option('dkms', type : 'boolean', value : false, description : 'enable DKMS plugin to help installing DKMS (and akmods) Secure Boot certificates to UEFI MOK')
+# FIXME Switch the systemd-sysupdate option to true by default once
+# systemd-sysupdate and Software's matching plugin are deemed mature enough.
+option('systemd-sysupdate', type : 'boolean', value : false, description : 'enable systemd-sysupdate support')

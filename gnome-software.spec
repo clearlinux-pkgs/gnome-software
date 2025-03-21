@@ -6,10 +6,10 @@
 # autospec commit: fbbd4e3
 #
 Name     : gnome-software
-Version  : 47.4
-Release  : 96
-URL      : https://download.gnome.org/sources/gnome-software/47/gnome-software-47.4.tar.xz
-Source0  : https://download.gnome.org/sources/gnome-software/47/gnome-software-47.4.tar.xz
+Version  : 48.0
+Release  : 97
+URL      : https://download.gnome.org/sources/gnome-software/48/gnome-software-48.0.tar.xz
+Source0  : https://download.gnome.org/sources/gnome-software/48/gnome-software-48.0.tar.xz
 Summary  : No detailed summary available
 Group    : Development/Tools
 License  : GPL-2.0
@@ -138,13 +138,13 @@ man components for the gnome-software package.
 
 
 %prep
-%setup -q -n gnome-software-47.4
-cd %{_builddir}/gnome-software-47.4
+%setup -q -n gnome-software-48.0
+cd %{_builddir}/gnome-software-48.0
 pushd ..
-cp -a gnome-software-47.4 buildavx2
+cp -a gnome-software-48.0 buildavx2
 popd
 pushd ..
-cp -a gnome-software-47.4 buildapx
+cp -a gnome-software-48.0 buildapx
 popd
 
 %build
@@ -152,7 +152,7 @@ export http_proxy=http://127.0.0.1:9/
 export https_proxy=http://127.0.0.1:9/
 export no_proxy=localhost,127.0.0.1,0.0.0.0
 export LANG=C.UTF-8
-export SOURCE_DATE_EPOCH=1740077333
+export SOURCE_DATE_EPOCH=1742587834
 export GCC_IGNORE_WERROR=1
 CLEAR_INTERMEDIATE_CFLAGS="$CLEAR_INTERMEDIATE_CFLAGS -fdebug-types-section -femit-struct-debug-baseonly -fno-lto -g1 -gno-column-info -gno-variable-location-views -gz=zstd "
 CLEAR_INTERMEDIATE_FCFLAGS="$CLEAR_INTERMEDIATE_FFLAGS -fdebug-types-section -femit-struct-debug-baseonly -fno-lto -g1 -gno-column-info -gno-variable-location-views -gz=zstd "
@@ -350,6 +350,27 @@ DESTDIR=%{buildroot} ninja -C builddir install
 /usr/share/help/C/gnome-software/legal.xml
 /usr/share/help/C/gnome-software/software-licensing.page
 /usr/share/help/C/gnome-software/software-metadata.page
+/usr/share/help/cs/gnome-software/figures/app-context-bar.png
+/usr/share/help/cs/gnome-software/figures/app-screenshot.png
+/usr/share/help/cs/gnome-software/figures/carousel.png
+/usr/share/help/cs/gnome-software/figures/install-webapp-from-gnome-web.png
+/usr/share/help/cs/gnome-software/figures/scalable/license-community-built.svg
+/usr/share/help/cs/gnome-software/figures/scalable/license-proprietary-and-special.svg
+/usr/share/help/cs/gnome-software/figures/scalable/license-unknown.svg
+/usr/share/help/cs/gnome-software/figures/scalable/links.svg
+/usr/share/help/cs/gnome-software/figures/scalable/no-links.svg
+/usr/share/help/cs/gnome-software/figures/scalable/symbolic/computer-fail-symbolic.svg
+/usr/share/help/cs/gnome-software/figures/scalable/symbolic/contact-symbolic.svg
+/usr/share/help/cs/gnome-software/figures/scalable/symbolic/donate-symbolic.svg
+/usr/share/help/cs/gnome-software/figures/scalable/symbolic/help-link-symbolic.svg
+/usr/share/help/cs/gnome-software/figures/scalable/symbolic/image-missing-symbolic.svg
+/usr/share/help/cs/gnome-software/figures/scalable/symbolic/translations-symbolic.svg
+/usr/share/help/cs/gnome-software/figures/scalable/symbolic/webpage-symbolic.svg
+/usr/share/help/cs/gnome-software/how-to-reinstall-a-web-app.page
+/usr/share/help/cs/gnome-software/index.page
+/usr/share/help/cs/gnome-software/legal.xml
+/usr/share/help/cs/gnome-software/software-licensing.page
+/usr/share/help/cs/gnome-software/software-metadata.page
 /usr/share/help/de/gnome-software/figures/app-context-bar.png
 /usr/share/help/de/gnome-software/figures/app-screenshot.png
 /usr/share/help/de/gnome-software/figures/carousel.png
@@ -434,6 +455,27 @@ DESTDIR=%{buildroot} ninja -C builddir install
 /usr/share/help/pt_BR/gnome-software/legal.xml
 /usr/share/help/pt_BR/gnome-software/software-licensing.page
 /usr/share/help/pt_BR/gnome-software/software-metadata.page
+/usr/share/help/ru/gnome-software/figures/app-context-bar.png
+/usr/share/help/ru/gnome-software/figures/app-screenshot.png
+/usr/share/help/ru/gnome-software/figures/carousel.png
+/usr/share/help/ru/gnome-software/figures/install-webapp-from-gnome-web.png
+/usr/share/help/ru/gnome-software/figures/scalable/license-community-built.svg
+/usr/share/help/ru/gnome-software/figures/scalable/license-proprietary-and-special.svg
+/usr/share/help/ru/gnome-software/figures/scalable/license-unknown.svg
+/usr/share/help/ru/gnome-software/figures/scalable/links.svg
+/usr/share/help/ru/gnome-software/figures/scalable/no-links.svg
+/usr/share/help/ru/gnome-software/figures/scalable/symbolic/computer-fail-symbolic.svg
+/usr/share/help/ru/gnome-software/figures/scalable/symbolic/contact-symbolic.svg
+/usr/share/help/ru/gnome-software/figures/scalable/symbolic/donate-symbolic.svg
+/usr/share/help/ru/gnome-software/figures/scalable/symbolic/help-link-symbolic.svg
+/usr/share/help/ru/gnome-software/figures/scalable/symbolic/image-missing-symbolic.svg
+/usr/share/help/ru/gnome-software/figures/scalable/symbolic/translations-symbolic.svg
+/usr/share/help/ru/gnome-software/figures/scalable/symbolic/webpage-symbolic.svg
+/usr/share/help/ru/gnome-software/how-to-reinstall-a-web-app.page
+/usr/share/help/ru/gnome-software/index.page
+/usr/share/help/ru/gnome-software/legal.xml
+/usr/share/help/ru/gnome-software/software-licensing.page
+/usr/share/help/ru/gnome-software/software-metadata.page
 /usr/share/help/sv/gnome-software/figures/app-context-bar.png
 /usr/share/help/sv/gnome-software/figures/app-screenshot.png
 /usr/share/help/sv/gnome-software/figures/carousel.png
@@ -455,55 +497,76 @@ DESTDIR=%{buildroot} ninja -C builddir install
 /usr/share/help/sv/gnome-software/legal.xml
 /usr/share/help/sv/gnome-software/software-licensing.page
 /usr/share/help/sv/gnome-software/software-metadata.page
+/usr/share/help/uk/gnome-software/figures/app-context-bar.png
+/usr/share/help/uk/gnome-software/figures/app-screenshot.png
+/usr/share/help/uk/gnome-software/figures/carousel.png
+/usr/share/help/uk/gnome-software/figures/install-webapp-from-gnome-web.png
+/usr/share/help/uk/gnome-software/figures/scalable/license-community-built.svg
+/usr/share/help/uk/gnome-software/figures/scalable/license-proprietary-and-special.svg
+/usr/share/help/uk/gnome-software/figures/scalable/license-unknown.svg
+/usr/share/help/uk/gnome-software/figures/scalable/links.svg
+/usr/share/help/uk/gnome-software/figures/scalable/no-links.svg
+/usr/share/help/uk/gnome-software/figures/scalable/symbolic/computer-fail-symbolic.svg
+/usr/share/help/uk/gnome-software/figures/scalable/symbolic/contact-symbolic.svg
+/usr/share/help/uk/gnome-software/figures/scalable/symbolic/donate-symbolic.svg
+/usr/share/help/uk/gnome-software/figures/scalable/symbolic/help-link-symbolic.svg
+/usr/share/help/uk/gnome-software/figures/scalable/symbolic/image-missing-symbolic.svg
+/usr/share/help/uk/gnome-software/figures/scalable/symbolic/translations-symbolic.svg
+/usr/share/help/uk/gnome-software/figures/scalable/symbolic/webpage-symbolic.svg
+/usr/share/help/uk/gnome-software/how-to-reinstall-a-web-app.page
+/usr/share/help/uk/gnome-software/index.page
+/usr/share/help/uk/gnome-software/legal.xml
+/usr/share/help/uk/gnome-software/software-licensing.page
+/usr/share/help/uk/gnome-software/software-metadata.page
 
 %files lib
 %defattr(-,root,root,-)
-/V3/usr/lib64/gnome-software/libgnomesoftware.so.21
-/V3/usr/lib64/gnome-software/plugins-21/libgs_plugin_appstream.so
-/V3/usr/lib64/gnome-software/plugins-21/libgs_plugin_dpkg.so
-/V3/usr/lib64/gnome-software/plugins-21/libgs_plugin_dummy.so
-/V3/usr/lib64/gnome-software/plugins-21/libgs_plugin_fedora-langpacks.so
-/V3/usr/lib64/gnome-software/plugins-21/libgs_plugin_fedora-pkgdb-collections.so
-/V3/usr/lib64/gnome-software/plugins-21/libgs_plugin_flatpak.so
-/V3/usr/lib64/gnome-software/plugins-21/libgs_plugin_generic-updates.so
-/V3/usr/lib64/gnome-software/plugins-21/libgs_plugin_hardcoded-blocklist.so
-/V3/usr/lib64/gnome-software/plugins-21/libgs_plugin_icons.so
-/V3/usr/lib64/gnome-software/plugins-21/libgs_plugin_modalias.so
-/V3/usr/lib64/gnome-software/plugins-21/libgs_plugin_os-release.so
-/V3/usr/lib64/gnome-software/plugins-21/libgs_plugin_provenance-license.so
-/V3/usr/lib64/gnome-software/plugins-21/libgs_plugin_provenance.so
-/V3/usr/lib64/gnome-software/plugins-21/libgs_plugin_repos.so
-/VA/usr/lib64/gnome-software/libgnomesoftware.so.21
-/VA/usr/lib64/gnome-software/plugins-21/libgs_plugin_appstream.so
-/VA/usr/lib64/gnome-software/plugins-21/libgs_plugin_dpkg.so
-/VA/usr/lib64/gnome-software/plugins-21/libgs_plugin_dummy.so
-/VA/usr/lib64/gnome-software/plugins-21/libgs_plugin_fedora-langpacks.so
-/VA/usr/lib64/gnome-software/plugins-21/libgs_plugin_fedora-pkgdb-collections.so
-/VA/usr/lib64/gnome-software/plugins-21/libgs_plugin_flatpak.so
-/VA/usr/lib64/gnome-software/plugins-21/libgs_plugin_generic-updates.so
-/VA/usr/lib64/gnome-software/plugins-21/libgs_plugin_hardcoded-blocklist.so
-/VA/usr/lib64/gnome-software/plugins-21/libgs_plugin_icons.so
-/VA/usr/lib64/gnome-software/plugins-21/libgs_plugin_modalias.so
-/VA/usr/lib64/gnome-software/plugins-21/libgs_plugin_os-release.so
-/VA/usr/lib64/gnome-software/plugins-21/libgs_plugin_provenance-license.so
-/VA/usr/lib64/gnome-software/plugins-21/libgs_plugin_provenance.so
-/VA/usr/lib64/gnome-software/plugins-21/libgs_plugin_repos.so
+/V3/usr/lib64/gnome-software/libgnomesoftware.so.22
+/V3/usr/lib64/gnome-software/plugins-22/libgs_plugin_appstream.so
+/V3/usr/lib64/gnome-software/plugins-22/libgs_plugin_dpkg.so
+/V3/usr/lib64/gnome-software/plugins-22/libgs_plugin_dummy.so
+/V3/usr/lib64/gnome-software/plugins-22/libgs_plugin_fedora-langpacks.so
+/V3/usr/lib64/gnome-software/plugins-22/libgs_plugin_fedora-pkgdb-collections.so
+/V3/usr/lib64/gnome-software/plugins-22/libgs_plugin_flatpak.so
+/V3/usr/lib64/gnome-software/plugins-22/libgs_plugin_generic-updates.so
+/V3/usr/lib64/gnome-software/plugins-22/libgs_plugin_hardcoded-blocklist.so
+/V3/usr/lib64/gnome-software/plugins-22/libgs_plugin_icons.so
+/V3/usr/lib64/gnome-software/plugins-22/libgs_plugin_modalias.so
+/V3/usr/lib64/gnome-software/plugins-22/libgs_plugin_os-release.so
+/V3/usr/lib64/gnome-software/plugins-22/libgs_plugin_provenance-license.so
+/V3/usr/lib64/gnome-software/plugins-22/libgs_plugin_provenance.so
+/V3/usr/lib64/gnome-software/plugins-22/libgs_plugin_repos.so
+/VA/usr/lib64/gnome-software/libgnomesoftware.so.22
+/VA/usr/lib64/gnome-software/plugins-22/libgs_plugin_appstream.so
+/VA/usr/lib64/gnome-software/plugins-22/libgs_plugin_dpkg.so
+/VA/usr/lib64/gnome-software/plugins-22/libgs_plugin_dummy.so
+/VA/usr/lib64/gnome-software/plugins-22/libgs_plugin_fedora-langpacks.so
+/VA/usr/lib64/gnome-software/plugins-22/libgs_plugin_fedora-pkgdb-collections.so
+/VA/usr/lib64/gnome-software/plugins-22/libgs_plugin_flatpak.so
+/VA/usr/lib64/gnome-software/plugins-22/libgs_plugin_generic-updates.so
+/VA/usr/lib64/gnome-software/plugins-22/libgs_plugin_hardcoded-blocklist.so
+/VA/usr/lib64/gnome-software/plugins-22/libgs_plugin_icons.so
+/VA/usr/lib64/gnome-software/plugins-22/libgs_plugin_modalias.so
+/VA/usr/lib64/gnome-software/plugins-22/libgs_plugin_os-release.so
+/VA/usr/lib64/gnome-software/plugins-22/libgs_plugin_provenance-license.so
+/VA/usr/lib64/gnome-software/plugins-22/libgs_plugin_provenance.so
+/VA/usr/lib64/gnome-software/plugins-22/libgs_plugin_repos.so
 /usr/lib64/gnome-software/libgnomesoftware.so
-/usr/lib64/gnome-software/libgnomesoftware.so.21
-/usr/lib64/gnome-software/plugins-21/libgs_plugin_appstream.so
-/usr/lib64/gnome-software/plugins-21/libgs_plugin_dpkg.so
-/usr/lib64/gnome-software/plugins-21/libgs_plugin_dummy.so
-/usr/lib64/gnome-software/plugins-21/libgs_plugin_fedora-langpacks.so
-/usr/lib64/gnome-software/plugins-21/libgs_plugin_fedora-pkgdb-collections.so
-/usr/lib64/gnome-software/plugins-21/libgs_plugin_flatpak.so
-/usr/lib64/gnome-software/plugins-21/libgs_plugin_generic-updates.so
-/usr/lib64/gnome-software/plugins-21/libgs_plugin_hardcoded-blocklist.so
-/usr/lib64/gnome-software/plugins-21/libgs_plugin_icons.so
-/usr/lib64/gnome-software/plugins-21/libgs_plugin_modalias.so
-/usr/lib64/gnome-software/plugins-21/libgs_plugin_os-release.so
-/usr/lib64/gnome-software/plugins-21/libgs_plugin_provenance-license.so
-/usr/lib64/gnome-software/plugins-21/libgs_plugin_provenance.so
-/usr/lib64/gnome-software/plugins-21/libgs_plugin_repos.so
+/usr/lib64/gnome-software/libgnomesoftware.so.22
+/usr/lib64/gnome-software/plugins-22/libgs_plugin_appstream.so
+/usr/lib64/gnome-software/plugins-22/libgs_plugin_dpkg.so
+/usr/lib64/gnome-software/plugins-22/libgs_plugin_dummy.so
+/usr/lib64/gnome-software/plugins-22/libgs_plugin_fedora-langpacks.so
+/usr/lib64/gnome-software/plugins-22/libgs_plugin_fedora-pkgdb-collections.so
+/usr/lib64/gnome-software/plugins-22/libgs_plugin_flatpak.so
+/usr/lib64/gnome-software/plugins-22/libgs_plugin_generic-updates.so
+/usr/lib64/gnome-software/plugins-22/libgs_plugin_hardcoded-blocklist.so
+/usr/lib64/gnome-software/plugins-22/libgs_plugin_icons.so
+/usr/lib64/gnome-software/plugins-22/libgs_plugin_modalias.so
+/usr/lib64/gnome-software/plugins-22/libgs_plugin_os-release.so
+/usr/lib64/gnome-software/plugins-22/libgs_plugin_provenance-license.so
+/usr/lib64/gnome-software/plugins-22/libgs_plugin_provenance.so
+/usr/lib64/gnome-software/plugins-22/libgs_plugin_repos.so
 
 %files libexec
 %defattr(-,root,root,-)
