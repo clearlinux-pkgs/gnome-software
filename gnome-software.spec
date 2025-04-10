@@ -7,7 +7,7 @@
 #
 Name     : gnome-software
 Version  : 48.0
-Release  : 97
+Release  : 98
 URL      : https://download.gnome.org/sources/gnome-software/48/gnome-software-48.0.tar.xz
 Source0  : https://download.gnome.org/sources/gnome-software/48/gnome-software-48.0.tar.xz
 Summary  : No detailed summary available
