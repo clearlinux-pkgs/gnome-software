@@ -6,10 +6,10 @@
 # autospec commit: 65cf152
 #
 Name     : gnome-software
-Version  : 48.2
-Release  : 101
-URL      : https://download.gnome.org/sources/gnome-software/48/gnome-software-48.2.tar.xz
-Source0  : https://download.gnome.org/sources/gnome-software/48/gnome-software-48.2.tar.xz
+Version  : 48.3
+Release  : 102
+URL      : https://download.gnome.org/sources/gnome-software/48/gnome-software-48.3.tar.xz
+Source0  : https://download.gnome.org/sources/gnome-software/48/gnome-software-48.3.tar.xz
 Summary  : No detailed summary available
 Group    : Development/Tools
 License  : GPL-2.0
@@ -138,13 +138,13 @@ man components for the gnome-software package.
 
 
 %prep
-%setup -q -n gnome-software-48.2
-cd %{_builddir}/gnome-software-48.2
+%setup -q -n gnome-software-48.3
+cd %{_builddir}/gnome-software-48.3
 pushd ..
-cp -a gnome-software-48.2 buildavx2
+cp -a gnome-software-48.3 buildavx2
 popd
 pushd ..
-cp -a gnome-software-48.2 buildapx
+cp -a gnome-software-48.3 buildapx
 popd
 
 %build
@@ -152,7 +152,7 @@ export http_proxy=http://127.0.0.1:9/
 export https_proxy=http://127.0.0.1:9/
 export no_proxy=localhost,127.0.0.1,0.0.0.0
 export LANG=C.UTF-8
-export SOURCE_DATE_EPOCH=1748974317
+export SOURCE_DATE_EPOCH=1751312835
 export GCC_IGNORE_WERROR=1
 CLEAR_INTERMEDIATE_CFLAGS="$CLEAR_INTERMEDIATE_CFLAGS -fdebug-types-section -femit-struct-debug-baseonly -fno-lto -g1 -gno-column-info -gno-variable-location-views -gz=zstd "
 CLEAR_INTERMEDIATE_FCFLAGS="$CLEAR_INTERMEDIATE_FFLAGS -fdebug-types-section -femit-struct-debug-baseonly -fno-lto -g1 -gno-column-info -gno-variable-location-views -gz=zstd "

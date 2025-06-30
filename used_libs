@@ -1,3 +1,4 @@
+libadwaita-1.so.0
 libappstream.so.5
 libc.so.6
 libflatpak.so.0
@@ -12,6 +13,7 @@ libgudev-1.0.so.0
 libjson-glib-1.0.so.0
 libm.so.6
 libostree-1.so.1
+libpango-1.0.so.0
 libpolkit-gobject-1.so.0
 libsoup-3.0.so.0
 libxmlb.so.2
